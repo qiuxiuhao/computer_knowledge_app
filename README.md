@@ -182,3 +182,71 @@ from src.services.data_safety_service import export_formal_cards_to_markdown
 
 paths = export_formal_cards_to_markdown("/path/to/export_dir")
 ```
+
+## macOS 打包
+
+项目提供 macOS `.app` 打包脚本：
+
+```bash
+scripts/build_macos.sh
+```
+
+打包前请先进入项目 conda 环境：
+
+```bash
+conda activate computer_knowledge_app
+```
+
+如果当前环境还没有 PyInstaller，可以安装：
+
+```bash
+python -m pip install pyinstaller
+```
+
+执行打包：
+
+```bash
+scripts/build_macos.sh
+```
+
+脚本会先清理：
+
+```text
+build/
+dist/
+```
+
+然后使用 PyInstaller 执行 macOS 窗口应用打包，关键参数包括：
+
+```text
+--windowed
+--name "个人计算机知识库"
+--icon assets/app_icon.icns
+--osx-bundle-identifier com.qiuxiuhao.computerknowledgeapp
+```
+
+打包产物：
+
+```text
+dist/个人计算机知识库.app
+```
+
+用户数据库不会被打包进 `.app` 内部。应用运行时仍使用：
+
+```text
+~/Library/Application Support/computer_knowledge_app/knowledge.db
+```
+
+验证 `.app` 可以启动：
+
+```bash
+open "dist/个人计算机知识库.app"
+```
+
+验证 `.app` 内没有数据库文件：
+
+```bash
+find "dist/个人计算机知识库.app" -type f \( -name "*.db" -o -name "*.sqlite" -o -name "*.sqlite3" \)
+```
+
+正常情况下，上面的命令不应输出任何数据库文件。

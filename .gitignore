@@ -22,6 +22,9 @@ htmlcov/
 # Local data and backups
 data/*
 !data/.gitkeep
+data/*.db
+data/*.sqlite
+data/*.sqlite3
 backups/*
 !backups/.gitkeep
 *.db

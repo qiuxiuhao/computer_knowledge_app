@@ -4,6 +4,23 @@
 
 ## 2026-07-01
 
+### Stage 9 Added
+
+- 新增 `scripts/build_macos.sh`，用于通过 PyInstaller 打包 macOS `.app`。
+- 打包应用名称为 `个人计算机知识库`，产物路径为 `dist/个人计算机知识库.app`。
+- 打包脚本使用 `assets/app_icon.icns` 作为 App 图标。
+- 打包脚本设置 bundle identifier：`com.qiuxiuhao.computerknowledgeapp`。
+- 打包前自动清理 `build/` 和 `dist/`。
+- 打包完成后检查 `.app` 内部是否误包含 `.db`、`.sqlite` 或 `.sqlite3` 数据库文件。
+- 更新 README，补充 PyInstaller 安装、打包脚本执行、产物位置和验证方法。
+- 更新 `.gitignore`，显式忽略 `build/`、`dist/`、`*.spec`、`data/*.db`、`data/*.sqlite`、`data/*.sqlite3` 和 `backups/`。
+
+### Stage 9 Notes
+
+- 未修改 `cards` 表结构。
+- 未把真实用户数据库打包进 `.app`。
+- 未添加收藏功能、独立待补充页面、常用标签侧栏、`todos` 表或 `favorites` 表。
+
 ### Stage 8 Added
 
 - 新增统一数据库路径管理：开发环境和未来打包环境默认都使用 `~/Library/Application Support/computer_knowledge_app/knowledge.db`。
