@@ -4,6 +4,26 @@
 
 ## 2026-07-01
 
+### Stage 8 Added
+
+- 新增统一数据库路径管理：开发环境默认使用 `data/knowledge.db`，打包环境默认使用 `~/Library/Application Support/computer_knowledge_app/knowledge.db`。
+- 新增 `app_meta` 表记录 `schema_version`，当前版本为 `1`。
+- App 初始化数据库时会检查 schema 版本，并预留按版本迁移的入口。
+- 新增迁移前自动备份机制，未来数据库升级前会先复制旧数据库。
+- 新增数据库备份函数，默认备份目录为 `~/Library/Application Support/computer_knowledge_app/backups/`。
+- 新增服务层手动备份函数。
+- 新增正式知识卡片 Markdown 导出函数，导出内容包含标题、用途场景、分类、标签、摘要、创建时间、更新时间和正文。
+- 新增 `scripts/test_backup_export.py`，用于临时数据库下验证备份和 Markdown 导出流程。
+- 更新 README，说明数据存储位置、备份方式和升级原则。
+- 更新 `.gitignore`，避免提交数据库、备份文件和打包产物。
+
+### Stage 8 Notes
+
+- 未修改 `cards` 表现有字段。
+- 未添加收藏功能、独立待补充页面、常用标签侧栏、`todos` 表或 `favorites` 表。
+- 未实现 AI、云同步、Web 功能或 PyInstaller 打包。
+- 未实现完整 Markdown 导入功能。
+
 ### Stage 7 Added
 
 - 编辑模式中的分类字段改为固定候选 + 可手动输入的下拉选择框。
