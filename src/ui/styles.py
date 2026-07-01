@@ -41,6 +41,10 @@ QComboBox#EditorInput {
     selection-background-color: #BFDBFE;
 }
 
+QComboBox#EditorInput {
+    padding-right: 44px;
+}
+
 QLineEdit#SearchBox {
     min-height: 32px;
 }
@@ -65,8 +69,17 @@ QTextBrowser#PreviewBody {
 }
 
 QComboBox#EditorInput::drop-down {
-    border: none;
-    width: 28px;
+    subcontrol-origin: padding;
+    subcontrol-position: top right;
+    background: #EFF6FF;
+    border-left: 1px solid #DDE3EC;
+    border-top-right-radius: 8px;
+    border-bottom-right-radius: 8px;
+    width: 38px;
+}
+
+QComboBox#EditorInput::drop-down:hover {
+    background: #DBEAFE;
 }
 
 QPushButton#PrimaryButton {
@@ -95,6 +108,25 @@ QPushButton#DeleteButton {
     color: #111827;
     font-weight: 600;
     padding: 9px 16px;
+}
+
+QPushButton#DraftAddButton {
+    background: #2563EB;
+    border: 1px solid #2563EB;
+    border-radius: 8px;
+    color: #FFFFFF;
+    font-weight: 700;
+    min-width: 34px;
+    max-width: 34px;
+    min-height: 34px;
+}
+
+QPushButton#DraftDeleteButton {
+    background: transparent;
+    border: none;
+    color: #DC2626;
+    font-size: 12px;
+    padding: 2px 4px;
 }
 
 QFrame#Sidebar,
@@ -159,6 +191,10 @@ QFrame#Divider {
 QFrame#DraftRow {
     border-radius: 7px;
     min-height: 28px;
+}
+
+QFrame#DraftRow:hover {
+    background: #EFF6FF;
 }
 
 QLabel#DraftIcon,

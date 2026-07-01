@@ -10,12 +10,15 @@ from pathlib import Path
 from src.db.database import initialize_database
 from src.services.card_service import (
     create_card,
+    create_draft_card,
     delete_card,
     ensure_sample_data_if_empty,
     get_all_draft_cards,
     get_all_formal_cards,
     get_card_by_id,
+    get_tag_suggestions,
     insert_sample_data,
+    normalize_tags,
     save_draft_as_formal,
     search_cards,
     update_card,
@@ -106,6 +109,21 @@ class DatabaseLayerTest(unittest.TestCase):
         self.assertIsNone(get_card_by_id(formal.id, self.db_path))
         self.assertFalse(delete_card(formal.id, self.db_path))
 
+    def test_create_draft_card_only_requires_title_and_sorts_newest_first(self) -> None:
+        first = create_draft_card("  第一个草稿  ", db_path=self.db_path)
+        second = create_draft_card("第二个草稿", db_path=self.db_path)
+
+        self.assertEqual(first.title, "第一个草稿")
+        self.assertEqual(first.is_draft, 1)
+        self.assertEqual(first.scenario, "")
+        self.assertEqual(first.content, "")
+
+        draft_cards = get_all_draft_cards(self.db_path)
+        self.assertEqual([card.title for card in draft_cards], ["第二个草稿", "第一个草稿"])
+
+        with self.assertRaises(ValueError):
+            create_draft_card("   ", db_path=self.db_path)
+
     def test_insert_sample_data(self) -> None:
         cards = insert_sample_data(self.db_path)
 
@@ -153,12 +171,12 @@ class DatabaseLayerTest(unittest.TestCase):
         create_card(
             title="普通内容匹配",
             category="Python",
-            content="这里包含优先级关键词。",
+            content="这里包含排序关键词。",
             is_draft=0,
             db_path=self.db_path,
         )
         create_card(
-            title="优先级标题匹配",
+            title="排序标题匹配",
             category="Python",
             content="正文没有特殊内容。",
             is_draft=0,
@@ -183,8 +201,31 @@ class DatabaseLayerTest(unittest.TestCase):
         draft_excluded = search_cards("草稿", db_path=self.db_path)
         self.assertEqual(draft_excluded, [])
 
-        priority_results = search_cards("优先级", db_path=self.db_path)
-        self.assertEqual(priority_results[0].title, "优先级标题匹配")
+        ordered_results = search_cards("排序", db_path=self.db_path)
+        self.assertEqual(ordered_results[0].title, "排序标题匹配")
+
+    def test_tag_normalization_and_suggestions(self) -> None:
+        self.assertEqual(
+            normalize_tags(" MLP， PyTorch, MLP,, 神经网络 ， "),
+            "MLP, PyTorch, 神经网络",
+        )
+
+        card = create_card(
+            title="标签清理测试",
+            tags=" PyTorch， tensor, PyTorch,, 张量 ",
+            is_draft=0,
+            db_path=self.db_path,
+        )
+        self.assertEqual(card.tags, "PyTorch, tensor, 张量")
+
+        updated = update_card(
+            int(card.id),
+            db_path=self.db_path,
+            tags="tensor， shape, tensor,  ",
+        )
+        self.assertIsNotNone(updated)
+        self.assertEqual(updated.tags, "tensor, shape")
+        self.assertEqual(get_tag_suggestions(self.db_path), ["shape", "tensor"])
 
 
 if __name__ == "__main__":

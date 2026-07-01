@@ -6,7 +6,9 @@ from pathlib import Path
 from typing import Callable
 
 from PySide6.QtCore import Qt
+from PySide6.QtGui import QColor, QPainter, QPen
 from PySide6.QtWidgets import (
+    QCompleter,
     QComboBox,
     QFrame,
     QHBoxLayout,
@@ -27,11 +29,13 @@ from src.db.database import DEFAULT_DB_PATH, initialize_database
 from src.models.card import Card
 from src.services.card_service import (
     create_card,
+    create_draft_card,
     delete_card,
     ensure_sample_data_if_empty,
     get_card_by_id,
     get_all_draft_cards,
     get_all_formal_cards,
+    get_tag_suggestions,
     search_cards,
     update_card,
 )
@@ -51,6 +55,41 @@ SCENARIOS = [
 ]
 
 CATEGORY_NAMES = [name for name, _count in CATEGORIES]
+EDITOR_CATEGORIES = [
+    "Python",
+    "深度学习",
+    "PyTorch",
+    "AutoDL",
+    "Mac",
+    "Linux",
+    "Conda",
+    "Git",
+    "常用命令",
+    "报错解决",
+    "项目经验",
+    "论文笔记",
+    "其他",
+]
+
+
+class EditorComboBox(QComboBox):
+    """Editable combo box with an always-visible dropdown chevron."""
+
+    def paintEvent(self, event) -> None:  # type: ignore[override]
+        super().paintEvent(event)
+
+        painter = QPainter(self)
+        painter.setRenderHint(QPainter.RenderHint.Antialiasing)
+        pen = QPen(QColor("#2563EB"))
+        pen.setWidthF(2.0)
+        pen.setCapStyle(Qt.PenCapStyle.RoundCap)
+        pen.setJoinStyle(Qt.PenJoinStyle.RoundJoin)
+        painter.setPen(pen)
+
+        center_x = self.width() - 20
+        center_y = self.height() // 2 + 1
+        painter.drawLine(center_x - 5, center_y - 3, center_x, center_y + 2)
+        painter.drawLine(center_x, center_y + 2, center_x + 5, center_y - 3)
 
 
 class MainWindow(QMainWindow):
@@ -68,6 +107,7 @@ class MainWindow(QMainWindow):
         self.selected_card_id: int | None = None
         self.selected_category = "全部"
         self.search_keyword = ""
+        self.active_draft_editor_id: int | None = None
         self.card_widgets: dict[int, QFrame] = {}
 
         self.setWindowTitle("个人计算机知识库")
@@ -191,11 +231,23 @@ class MainWindow(QMainWindow):
         draft_header.addWidget(self.draft_count_label)
         layout.addLayout(draft_header)
 
-        draft_input = QLineEdit()
-        draft_input.setObjectName("DraftInput")
-        draft_input.setPlaceholderText("快速记下一个标题...")
-        draft_input.setToolTip("草稿快速创建将在后续阶段实现")
-        layout.addWidget(draft_input)
+        draft_input_row = QHBoxLayout()
+        draft_input_row.setContentsMargins(0, 0, 0, 0)
+        draft_input_row.setSpacing(8)
+
+        self.draft_input = QLineEdit()
+        self.draft_input.setObjectName("DraftInput")
+        self.draft_input.setPlaceholderText("快速记下一个标题...")
+        self.draft_input.returnPressed.connect(self.create_draft_from_input)
+        draft_input_row.addWidget(self.draft_input, 1)
+
+        add_draft_button = QPushButton("+")
+        add_draft_button.setObjectName("DraftAddButton")
+        add_draft_button.setToolTip("添加草稿")
+        add_draft_button.clicked.connect(self.create_draft_from_input)
+        draft_input_row.addWidget(add_draft_button)
+
+        layout.addLayout(draft_input_row)
 
         self.draft_container = QWidget()
         self.draft_layout = QVBoxLayout(self.draft_container)
@@ -354,6 +406,11 @@ class MainWindow(QMainWindow):
         label.setWordWrap(False)
         layout.addWidget(label, 1)
 
+        delete_button = QPushButton("删除")
+        delete_button.setObjectName("DraftDeleteButton")
+        delete_button.clicked.connect(lambda: self.confirm_delete_draft(draft))
+        layout.addWidget(delete_button)
+
         return row
 
     def _build_card_item(self, card: Card, selected: bool = False) -> QWidget:
@@ -428,16 +485,19 @@ class MainWindow(QMainWindow):
     def select_category(self, category: str) -> None:
         if category == self.selected_category:
             return
+        self.active_draft_editor_id = None
         self.selected_category = category
         self.selected_card_id = None
         self.reload_data(select_first=True)
 
     def on_search_text_changed(self, text: str) -> None:
+        self.active_draft_editor_id = None
         self.search_keyword = text.strip()
         self.selected_card_id = None
         self.reload_data(select_first=True)
 
     def select_card(self, card_id: int) -> None:
+        self.active_draft_editor_id = None
         self.selected_card_id = card_id
         for existing_id, widget in self.card_widgets.items():
             self._set_selected_property(widget, existing_id == card_id)
@@ -451,12 +511,14 @@ class MainWindow(QMainWindow):
         self._set_detail_widget(self._build_preview_detail(card))
 
     def show_new_card_editor(self) -> None:
+        self.active_draft_editor_id = None
         self.selected_card_id = None
         for widget in self.card_widgets.values():
             self._set_selected_property(widget, False)
         self._set_detail_widget(self._build_edit_detail(card=None))
 
     def show_edit_card_editor(self, card: Card) -> None:
+        self.active_draft_editor_id = None
         self._set_detail_widget(self._build_edit_detail(card=card))
 
     def open_draft_editor(self, card_id: int) -> None:
@@ -466,9 +528,19 @@ class MainWindow(QMainWindow):
             return
 
         self.selected_card_id = None
+        self.active_draft_editor_id = card_id
         for widget in self.card_widgets.values():
             self._set_selected_property(widget, False)
         self._set_detail_widget(self._build_edit_detail(card=draft))
+
+    def create_draft_from_input(self) -> None:
+        title = self.draft_input.text().strip()
+        if not title:
+            return
+
+        create_draft_card(title, db_path=self.db_path)
+        self.draft_input.clear()
+        self.reload_data(selected_card_id=self.selected_card_id)
 
     def save_editor(self, card: Card | None, fields: dict[str, str]) -> None:
         title = fields["title"].strip()
@@ -507,6 +579,14 @@ class MainWindow(QMainWindow):
             self.reload_data(select_first=True)
             return
 
+        if card is not None and card.is_draft == 1:
+            self.active_draft_editor_id = None
+            self.selected_category = "全部"
+            self.search_keyword = ""
+            self.search_input.blockSignals(True)
+            self.search_input.clear()
+            self.search_input.blockSignals(False)
+
         self.reload_data(selected_card_id=saved.id)
 
     def confirm_delete_card(self, card: Card) -> None:
@@ -523,6 +603,24 @@ class MainWindow(QMainWindow):
         delete_card(int(card.id), self.db_path)
         self.selected_card_id = None
         self.reload_data(select_first=True)
+
+    def confirm_delete_draft(self, draft: Card) -> None:
+        answer = QMessageBox.question(
+            self,
+            "删除草稿",
+            f"确定删除这个草稿吗？\n\n{draft.title}",
+            QMessageBox.Yes | QMessageBox.No,
+            QMessageBox.No,
+        )
+        if answer != QMessageBox.Yes:
+            return
+
+        delete_card(int(draft.id), self.db_path)
+        if self.active_draft_editor_id == draft.id:
+            self.active_draft_editor_id = None
+            self.reload_data(select_first=True)
+        else:
+            self.reload_data(selected_card_id=self.selected_card_id)
 
     def _build_preview_detail(self, card: Card) -> QWidget:
         content = QWidget()
@@ -596,23 +694,31 @@ class MainWindow(QMainWindow):
         title_input.setPlaceholderText("标题")
         layout.addWidget(self._build_editor_field("标题", title_input))
 
-        scenario_input = QComboBox()
+        scenario_input = EditorComboBox()
         scenario_input.setObjectName("EditorInput")
         scenario_input.setEditable(True)
         scenario_input.addItems(SCENARIOS)
         self._set_combo_text(scenario_input, card.scenario if card else "知识点")
         layout.addWidget(self._build_editor_field("用途场景", scenario_input))
 
-        category_input = QComboBox()
+        category_input = EditorComboBox()
         category_input.setObjectName("EditorInput")
         category_input.setEditable(True)
-        category_input.addItems([name for name in CATEGORY_NAMES if name != "全部"])
+        category_input.addItems(EDITOR_CATEGORIES)
+        category_completer = QCompleter(EDITOR_CATEGORIES, category_input)
+        category_completer.setCaseSensitivity(Qt.CaseSensitivity.CaseInsensitive)
+        category_completer.setFilterMode(Qt.MatchFlag.MatchContains)
+        category_input.setCompleter(category_completer)
         self._set_combo_text(category_input, card.category if card else "深度学习")
         layout.addWidget(self._build_editor_field("分类", category_input))
 
         tags_input = QLineEdit(card.tags if card else "")
         tags_input.setObjectName("EditorInput")
         tags_input.setPlaceholderText("例如：MLP, PyTorch, 神经网络")
+        tag_completer = QCompleter(get_tag_suggestions(self.db_path), tags_input)
+        tag_completer.setCaseSensitivity(Qt.CaseSensitivity.CaseInsensitive)
+        tag_completer.setFilterMode(Qt.MatchFlag.MatchContains)
+        tags_input.setCompleter(tag_completer)
         layout.addWidget(self._build_editor_field("标签", tags_input))
 
         summary_input = QLineEdit(card.summary if card else "")

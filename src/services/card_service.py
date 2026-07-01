@@ -32,6 +32,50 @@ def _normalize_is_draft(value: int | bool) -> int:
     return 1 if bool(value) else 0
 
 
+def _split_clean_tags(tags: str) -> list[str]:
+    cleaned_tags: list[str] = []
+    seen: set[str] = set()
+
+    for raw_tag in tags.replace("，", ",").split(","):
+        tag = raw_tag.strip()
+        if not tag or tag in seen:
+            continue
+        cleaned_tags.append(tag)
+        seen.add(tag)
+
+    return cleaned_tags
+
+
+def normalize_tags(tags: str) -> str:
+    """Normalize comma-separated tags before saving them to cards.tags."""
+    return ", ".join(_split_clean_tags(tags))
+
+
+def get_tag_suggestions(db_path: str | Path = DEFAULT_DB_PATH) -> list[str]:
+    """Return unique tag suggestions parsed from existing cards."""
+    initialize_database(db_path)
+
+    with get_connection(db_path) as connection:
+        rows = connection.execute(
+            """
+            SELECT tags
+            FROM cards
+            WHERE tags IS NOT NULL AND TRIM(tags) != '';
+            """
+        ).fetchall()
+
+    suggestions: list[str] = []
+    seen: set[str] = set()
+    for row in rows:
+        for tag in _split_clean_tags(row["tags"] or ""):
+            if tag in seen:
+                continue
+            suggestions.append(tag)
+            seen.add(tag)
+
+    return sorted(suggestions, key=str.casefold)
+
+
 def create_card(
     *,
     title: str,
@@ -65,7 +109,7 @@ def create_card(
                 title.strip(),
                 scenario,
                 category,
-                tags,
+                normalize_tags(tags),
                 summary,
                 content,
                 keywords,
@@ -82,6 +126,15 @@ def create_card(
     if card is None:
         raise RuntimeError("created card could not be loaded")
     return card
+
+
+def create_draft_card(
+    title: str,
+    *,
+    db_path: str | Path = DEFAULT_DB_PATH,
+) -> Card:
+    """Create a draft card with only a title."""
+    return create_card(title=title, is_draft=1, db_path=db_path)
 
 
 def get_all_formal_cards(db_path: str | Path = DEFAULT_DB_PATH) -> list[Card]:
@@ -207,6 +260,8 @@ def update_card(
             cleaned_fields[key] = _normalize_is_draft(value)
         elif key == "title":
             cleaned_fields[key] = str(value).strip()
+        elif key == "tags":
+            cleaned_fields[key] = normalize_tags(str(value))
         else:
             cleaned_fields[key] = value
 
