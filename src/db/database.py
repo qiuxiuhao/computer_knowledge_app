@@ -5,7 +5,6 @@ from __future__ import annotations
 import os
 import shutil
 import sqlite3
-import sys
 from collections.abc import Callable
 from datetime import datetime
 from pathlib import Path
@@ -13,8 +12,6 @@ from pathlib import Path
 APP_ID = "computer_knowledge_app"
 APP_SUPPORT_PARENT = Path.home() / "Library" / "Application Support"
 SCHEMA_VERSION = 1
-PROJECT_ROOT = Path(__file__).resolve().parents[2]
-DEVELOPMENT_DB_PATH = PROJECT_ROOT / "data" / "knowledge.db"
 DATABASE_PATH_ENV = "COMPUTER_KNOWLEDGE_APP_DB_PATH"
 
 CARDS_TABLE_SQL = """
@@ -45,11 +42,6 @@ Migration = Callable[[sqlite3.Connection], None]
 MIGRATIONS: dict[int, Migration] = {}
 
 
-def is_packaged_app() -> bool:
-    """Return True when running from a frozen macOS app bundle."""
-    return bool(getattr(sys, "frozen", False))
-
-
 def get_user_data_dir() -> Path:
     """Return the macOS Application Support directory for real user data."""
     return APP_SUPPORT_PARENT / APP_ID
@@ -60,16 +52,19 @@ def get_backup_dir() -> Path:
     return get_user_data_dir() / "backups"
 
 
-def get_database_path(*, packaged: bool | None = None) -> Path:
-    """Return the default database path for development or packaged runtime."""
+def ensure_app_directories() -> None:
+    """Create the application data and backup directories if needed."""
+    get_user_data_dir().mkdir(parents=True, exist_ok=True)
+    get_backup_dir().mkdir(parents=True, exist_ok=True)
+
+
+def get_database_path() -> Path:
+    """Return the unified database path for development and packaged runtime."""
     override = os.environ.get(DATABASE_PATH_ENV)
     if override:
         return Path(override).expanduser()
 
-    should_use_user_data = is_packaged_app() if packaged is None else packaged
-    if should_use_user_data:
-        return get_user_data_dir() / "knowledge.db"
-    return DEVELOPMENT_DB_PATH
+    return get_user_data_dir() / "knowledge.db"
 
 
 DEFAULT_DB_PATH = get_database_path()
@@ -182,6 +177,9 @@ def migrate_database(
 def initialize_database(db_path: str | Path = DEFAULT_DB_PATH) -> Path:
     """Create tables, initialize schema version, and run needed migrations."""
     path = Path(db_path)
+    if path == get_database_path():
+        ensure_app_directories()
+
     database_existed = path.exists()
     with get_connection(path) as connection:
         connection.execute(CARDS_TABLE_SQL)

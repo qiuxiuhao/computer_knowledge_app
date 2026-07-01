@@ -6,7 +6,8 @@
 
 ### Stage 8 Added
 
-- 新增统一数据库路径管理：开发环境默认使用 `data/knowledge.db`，打包环境默认使用 `~/Library/Application Support/computer_knowledge_app/knowledge.db`。
+- 新增统一数据库路径管理：开发环境和未来打包环境默认都使用 `~/Library/Application Support/computer_knowledge_app/knowledge.db`。
+- App 启动初始化数据库时，会自动创建 `~/Library/Application Support/computer_knowledge_app/` 和 `~/Library/Application Support/computer_knowledge_app/backups/`。
 - 新增 `app_meta` 表记录 `schema_version`，当前版本为 `1`。
 - App 初始化数据库时会检查 schema 版本，并预留按版本迁移的入口。
 - 新增迁移前自动备份机制，未来数据库升级前会先复制旧数据库。

@@ -75,12 +75,11 @@ class DatabaseLayerTest(unittest.TestCase):
 
         self.assertEqual(schema_version, "1")
 
-    def test_packaged_database_path_uses_application_support(self) -> None:
+    def test_default_database_path_uses_application_support(self) -> None:
         self.assertEqual(
-            get_database_path(packaged=True),
+            get_database_path(),
             get_user_data_dir() / "knowledge.db",
         )
-        self.assertEqual(get_database_path(packaged=False).name, "knowledge.db")
 
     def test_create_read_update_delete_and_convert_draft(self) -> None:
         formal = create_card(

@@ -98,19 +98,20 @@ is_draft = 0
 
 ## 数据存储位置
 
-开发环境默认数据库路径：
-
-```text
-data/knowledge.db
-```
-
-打包后的真实用户数据库路径：
+开发环境和未来打包后的 macOS App 统一使用同一个真实用户数据库路径：
 
 ```text
 ~/Library/Application Support/computer_knowledge_app/knowledge.db
 ```
 
-真实用户数据库不应放在 `.app` 内部，也不应提交到 Git。这样升级或替换 App 本体时，只会替换程序文件，不会覆盖用户的 SQLite 数据库。
+真实用户数据库不放在项目 `data/` 目录里，不放在 `.app` 内部，也不应提交到 Git。这样升级或替换 App 本体时，只会替换程序文件，不会覆盖用户的 SQLite 数据库。
+
+App 启动初始化数据库时，如果以下目录不存在，会自动创建：
+
+```text
+~/Library/Application Support/computer_knowledge_app/
+~/Library/Application Support/computer_knowledge_app/backups/
+```
 
 如需临时指定数据库路径，可以设置环境变量：
 
