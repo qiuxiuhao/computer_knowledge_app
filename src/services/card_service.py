@@ -174,7 +174,7 @@ def save_draft_as_formal(card_id: int, db_path: str | Path = DEFAULT_DB_PATH) ->
 
 
 def insert_sample_data(db_path: str | Path = DEFAULT_DB_PATH) -> list[Card]:
-    """Insert a few sample cards for manual database-layer testing."""
+    """Insert sample cards for first-run and manual database-layer testing."""
     samples = [
         {
             "title": "MLP 是什么，以及 PyTorch 中一般怎么写",
@@ -182,8 +182,92 @@ def insert_sample_data(db_path: str | Path = DEFAULT_DB_PATH) -> list[Card]:
             "category": "深度学习",
             "tags": "MLP, PyTorch, 神经网络, 全连接层",
             "summary": "MLP 是由多个全连接层和激活函数组成的神经网络结构。",
-            "content": "## PyTorch 最小代码\n\n```python\nimport torch.nn as nn\n```",
+            "content": (
+                "一、使用场景\n"
+                "- 适用于图像分类、表格数据建模等结构化数据任务。\n\n"
+                "二、基本结构\n"
+                "- 由若干全连接层（Linear）和激活函数（如 ReLU）堆叠组成。\n\n"
+                "三、PyTorch 最小代码\n\n"
+                "```python\n"
+                "import torch.nn as nn\n\n"
+                "model = nn.Sequential(\n"
+                "    nn.Linear(784, 128),\n"
+                "    nn.ReLU(),\n"
+                "    nn.Linear(128, 10)\n"
+                ")\n"
+                "```\n\n"
+                "四、注意事项\n"
+                "- 根据任务调整层数和隐藏单元数。"
+            ),
             "keywords": "MLP, Linear, ReLU",
+            "source": "",
+            "is_draft": 0,
+        },
+        {
+            "title": "Mac 终端提示 zsh: command not found: conda 怎么解决",
+            "scenario": "问题解决",
+            "category": "报错解决",
+            "tags": "zsh, conda, Mac, 终端",
+            "summary": "分析 conda 命令无法找到的常见原因，并记录排查和修复方法。",
+            "content": (
+                "一、常见原因\n"
+                "- conda 没有安装。\n"
+                "- shell 初始化脚本没有写入 PATH。\n"
+                "- 终端没有重新加载配置。\n\n"
+                "二、可先检查\n\n"
+                "```bash\n"
+                "which conda\n"
+                "echo $PATH\n"
+                "```\n\n"
+                "三、处理思路\n"
+                "- 确认 Miniforge 或 Anaconda 安装路径。\n"
+                "- 重新初始化 shell 或手动补充 PATH。"
+            ),
+            "keywords": "zsh, conda, PATH",
+            "source": "",
+            "is_draft": 0,
+        },
+        {
+            "title": "tmux 常用命令整理",
+            "scenario": "常用命令",
+            "category": "常用命令",
+            "tags": "tmux, 终端, 效率工具",
+            "summary": "整理 tmux 常用会话、窗口和后台运行命令。",
+            "content": (
+                "一、创建会话\n\n"
+                "```bash\n"
+                "tmux new -s train\n"
+                "```\n\n"
+                "二、恢复会话\n\n"
+                "```bash\n"
+                "tmux attach -t train\n"
+                "```\n\n"
+                "三、查看会话\n\n"
+                "```bash\n"
+                "tmux ls\n"
+                "```"
+            ),
+            "keywords": "tmux, session, terminal",
+            "source": "",
+            "is_draft": 0,
+        },
+        {
+            "title": "AutoDL 上创建 conda 环境的完整流程",
+            "scenario": "实践教程",
+            "category": "AutoDL",
+            "tags": "AutoDL, conda, 环境配置",
+            "summary": "记录在 AutoDL 上从创建环境到安装依赖的基础流程。",
+            "content": (
+                "一、创建环境\n\n"
+                "```bash\n"
+                "conda create -n myenv python=3.11\n"
+                "conda activate myenv\n"
+                "```\n\n"
+                "二、安装依赖\n"
+                "- 优先根据项目 README 安装。\n"
+                "- 注意 CUDA 和 PyTorch 版本匹配。"
+            ),
+            "keywords": "AutoDL, conda, PyTorch",
             "source": "",
             "is_draft": 0,
         },
@@ -209,9 +293,45 @@ def insert_sample_data(db_path: str | Path = DEFAULT_DB_PATH) -> list[Card]:
             "source": "",
             "is_draft": 1,
         },
+        {
+            "title": "tmux 为什么能后台运行",
+            "scenario": "",
+            "category": "",
+            "tags": "",
+            "summary": "",
+            "content": "",
+            "keywords": "tmux, 后台运行",
+            "source": "",
+            "is_draft": 1,
+        },
+        {
+            "title": "macOS 里的 PATH 是什么",
+            "scenario": "",
+            "category": "",
+            "tags": "",
+            "summary": "",
+            "content": "",
+            "keywords": "macOS, PATH",
+            "source": "",
+            "is_draft": 1,
+        },
     ]
 
     return [create_card(db_path=db_path, **sample) for sample in samples]
+
+
+def ensure_sample_data_if_empty(db_path: str | Path = DEFAULT_DB_PATH) -> bool:
+    """Insert sample data only when the cards table is completely empty."""
+    initialize_database(db_path)
+
+    with get_connection(db_path) as connection:
+        count = connection.execute("SELECT COUNT(*) FROM cards;").fetchone()[0]
+
+    if count > 0:
+        return False
+
+    insert_sample_data(db_path)
+    return True
 
 
 def _get_cards_by_draft_state(is_draft: int, db_path: str | Path) -> list[Card]:
@@ -230,4 +350,3 @@ def _get_cards_by_draft_state(is_draft: int, db_path: str | Path) -> list[Card]:
         ).fetchall()
 
     return [Card.from_row(row) for row in rows]
-

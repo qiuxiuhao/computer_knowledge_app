@@ -1,4 +1,4 @@
-"""QSS styles for the Stage 1 static UI."""
+"""QSS styles for the PySide6 desktop UI."""
 
 APP_STYLE = """
 QMainWindow {
@@ -30,7 +30,9 @@ QLabel#CurrentPage {
 }
 
 QLineEdit#SearchBox,
-QLineEdit#DraftInput {
+QLineEdit#DraftInput,
+QLineEdit#EditorInput,
+QComboBox#EditorInput {
     background: #FFFFFF;
     border: 1px solid #DDE3EC;
     border-radius: 9px;
@@ -41,6 +43,30 @@ QLineEdit#DraftInput {
 
 QLineEdit#SearchBox {
     min-height: 32px;
+}
+
+QTextEdit#EditorTextArea,
+QTextEdit#PreviewBody,
+QTextBrowser#PreviewBody {
+    background: #FFFFFF;
+    border: 1px solid #DDE3EC;
+    border-radius: 9px;
+    color: #111827;
+    font-size: 14px;
+    line-height: 1.6;
+    padding: 10px;
+    selection-background-color: #BFDBFE;
+}
+
+QTextEdit#PreviewBody,
+QTextBrowser#PreviewBody {
+    background: #F8FAFC;
+    font-family: "SF Pro Text", "Helvetica Neue", Arial;
+}
+
+QComboBox#EditorInput::drop-down {
+    border: none;
+    width: 28px;
 }
 
 QPushButton#PrimaryButton {

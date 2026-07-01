@@ -11,6 +11,7 @@ from src.db.database import initialize_database
 from src.services.card_service import (
     create_card,
     delete_card,
+    ensure_sample_data_if_empty,
     get_all_draft_cards,
     get_all_formal_cards,
     get_card_by_id,
@@ -107,11 +108,16 @@ class DatabaseLayerTest(unittest.TestCase):
     def test_insert_sample_data(self) -> None:
         cards = insert_sample_data(self.db_path)
 
-        self.assertEqual(len(cards), 3)
-        self.assertEqual(len(get_all_formal_cards(self.db_path)), 1)
-        self.assertEqual(len(get_all_draft_cards(self.db_path)), 2)
+        self.assertEqual(len(cards), 8)
+        self.assertEqual(len(get_all_formal_cards(self.db_path)), 4)
+        self.assertEqual(len(get_all_draft_cards(self.db_path)), 4)
+
+    def test_ensure_sample_data_only_inserts_when_empty(self) -> None:
+        self.assertTrue(ensure_sample_data_if_empty(self.db_path))
+        self.assertFalse(ensure_sample_data_if_empty(self.db_path))
+        self.assertEqual(len(get_all_formal_cards(self.db_path)), 4)
+        self.assertEqual(len(get_all_draft_cards(self.db_path)), 4)
 
 
 if __name__ == "__main__":
     unittest.main()
-

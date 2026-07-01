@@ -1,4 +1,4 @@
-"""Application entry point for the static Stage 1 PySide6 UI."""
+"""Application entry point for the PySide6 desktop UI."""
 
 from __future__ import annotations
 
@@ -31,7 +31,7 @@ def main() -> int:
 
     if args.smoke_test:
         app.processEvents()
-        print("Stage 1 static PySide6 UI smoke test passed.")
+        print("PySide6 UI smoke test passed.")
         window.close()
         return 0
 
@@ -40,4 +40,3 @@ def main() -> int:
 
 if __name__ == "__main__":
     raise SystemExit(main())
-
