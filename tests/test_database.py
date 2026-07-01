@@ -17,6 +17,7 @@ from src.services.card_service import (
     get_card_by_id,
     insert_sample_data,
     save_draft_as_formal,
+    search_cards,
     update_card,
 )
 
@@ -117,6 +118,73 @@ class DatabaseLayerTest(unittest.TestCase):
         self.assertFalse(ensure_sample_data_if_empty(self.db_path))
         self.assertEqual(len(get_all_formal_cards(self.db_path)), 4)
         self.assertEqual(len(get_all_draft_cards(self.db_path)), 4)
+
+    def test_search_cards_matches_expected_fields_and_excludes_drafts(self) -> None:
+        create_card(
+            title="PyTorch 张量维度整理",
+            scenario="知识点",
+            category="PyTorch",
+            tags="tensor, shape",
+            summary="记录张量维度变化。",
+            content="使用 view 和 reshape 调整维度。",
+            keywords="dimension",
+            is_draft=0,
+            db_path=self.db_path,
+        )
+        create_card(
+            title="AutoDL 训练流程",
+            scenario="工作流",
+            category="AutoDL",
+            tags="server, train",
+            summary="远程训练流程。",
+            content="启动 tmux 后运行训练脚本。",
+            keywords="gpu",
+            is_draft=0,
+            db_path=self.db_path,
+        )
+        create_card(
+            title="PyTorch 草稿不应出现",
+            category="PyTorch",
+            tags="tensor",
+            content="view reshape",
+            is_draft=1,
+            db_path=self.db_path,
+        )
+        create_card(
+            title="普通内容匹配",
+            category="Python",
+            content="这里包含优先级关键词。",
+            is_draft=0,
+            db_path=self.db_path,
+        )
+        create_card(
+            title="优先级标题匹配",
+            category="Python",
+            content="正文没有特殊内容。",
+            is_draft=0,
+            db_path=self.db_path,
+        )
+
+        title_results = search_cards("张量", db_path=self.db_path)
+        self.assertEqual([card.title for card in title_results], ["PyTorch 张量维度整理"])
+
+        tag_results = search_cards("server", db_path=self.db_path)
+        self.assertEqual([card.title for card in tag_results], ["AutoDL 训练流程"])
+
+        content_results = search_cards("reshape", db_path=self.db_path)
+        self.assertEqual([card.title for card in content_results], ["PyTorch 张量维度整理"])
+
+        category_results = search_cards("训练", category="AutoDL", db_path=self.db_path)
+        self.assertEqual([card.title for card in category_results], ["AutoDL 训练流程"])
+
+        excluded_by_category = search_cards("训练", category="PyTorch", db_path=self.db_path)
+        self.assertEqual(excluded_by_category, [])
+
+        draft_excluded = search_cards("草稿", db_path=self.db_path)
+        self.assertEqual(draft_excluded, [])
+
+        priority_results = search_cards("优先级", db_path=self.db_path)
+        self.assertEqual(priority_results[0].title, "优先级标题匹配")
 
 
 if __name__ == "__main__":

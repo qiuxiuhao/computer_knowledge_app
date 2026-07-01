@@ -94,6 +94,75 @@ def get_all_draft_cards(db_path: str | Path = DEFAULT_DB_PATH) -> list[Card]:
     return _get_cards_by_draft_state(1, db_path)
 
 
+def search_cards(
+    keyword: str = "",
+    *,
+    category: str | None = None,
+    db_path: str | Path = DEFAULT_DB_PATH,
+) -> list[Card]:
+    """Search formal cards with SQLite LIKE and optional category filtering."""
+    initialize_database(db_path)
+
+    normalized_keyword = keyword.strip()
+    normalized_category = category.strip() if category else ""
+    where_clauses = ["is_draft = 0"]
+    parameters: list[str] = []
+
+    if normalized_category and normalized_category != "全部":
+        where_clauses.append("category = ?")
+        parameters.append(normalized_category)
+
+    like_value = f"%{normalized_keyword}%"
+    if normalized_keyword:
+        where_clauses.append(
+            """
+            (
+                title LIKE ?
+                OR summary LIKE ?
+                OR tags LIKE ?
+                OR keywords LIKE ?
+                OR content LIKE ?
+                OR category LIKE ?
+                OR scenario LIKE ?
+            )
+            """
+        )
+        parameters.extend([like_value] * 7)
+
+    where_sql = " AND ".join(where_clauses)
+
+    if normalized_keyword:
+        order_sql = """
+        CASE
+            WHEN title LIKE ? THEN 1
+            WHEN tags LIKE ? THEN 2
+            WHEN summary LIKE ? OR keywords LIKE ? THEN 3
+            WHEN category LIKE ? OR scenario LIKE ? THEN 4
+            WHEN content LIKE ? THEN 5
+            ELSE 6
+        END,
+        updated_at DESC,
+        id DESC
+        """
+        parameters.extend([like_value] * 7)
+    else:
+        order_sql = "updated_at DESC, id DESC"
+
+    with get_connection(db_path) as connection:
+        rows = connection.execute(
+            f"""
+            SELECT id, title, scenario, category, tags, summary, content,
+                   keywords, source, is_draft, created_at, updated_at
+            FROM cards
+            WHERE {where_sql}
+            ORDER BY {order_sql};
+            """,
+            parameters,
+        ).fetchall()
+
+    return [Card.from_row(row) for row in rows]
+
+
 def get_card_by_id(card_id: int, db_path: str | Path = DEFAULT_DB_PATH) -> Card | None:
     """Return one card by id, or None if it does not exist."""
     initialize_database(db_path)

@@ -32,6 +32,7 @@ from src.services.card_service import (
     get_card_by_id,
     get_all_draft_cards,
     get_all_formal_cards,
+    search_cards,
     update_card,
 )
 from src.ui.mock_data import CATEGORIES
@@ -61,9 +62,12 @@ class MainWindow(QMainWindow):
         initialize_database(self.db_path)
         ensure_sample_data_if_empty(self.db_path)
 
+        self.all_formal_cards: list[Card] = []
         self.cards: list[Card] = []
         self.drafts: list[Card] = []
         self.selected_card_id: int | None = None
+        self.selected_category = "全部"
+        self.search_keyword = ""
         self.card_widgets: dict[int, QFrame] = {}
 
         self.setWindowTitle("个人计算机知识库")
@@ -82,8 +86,13 @@ class MainWindow(QMainWindow):
         self.reload_data(select_first=True)
 
     def reload_data(self, select_first: bool = False, selected_card_id: int | None = None) -> None:
-        self.cards = get_all_formal_cards(self.db_path)
+        self.all_formal_cards = get_all_formal_cards(self.db_path)
         self.drafts = get_all_draft_cards(self.db_path)
+        self.cards = search_cards(
+            self.search_keyword,
+            category=self.selected_category,
+            db_path=self.db_path,
+        )
 
         if selected_card_id is not None:
             self.selected_card_id = selected_card_id
@@ -123,7 +132,7 @@ class MainWindow(QMainWindow):
         self.search_input.setObjectName("SearchBox")
         self.search_input.setPlaceholderText("搜索标题、标签、正文...")
         self.search_input.setClearButtonEnabled(False)
-        self.search_input.setToolTip("真实搜索将在后续阶段实现")
+        self.search_input.textChanged.connect(self.on_search_text_changed)
         layout.addWidget(self.search_input, 1)
 
         new_card = QPushButton("+  新建卡片")
@@ -251,13 +260,13 @@ class MainWindow(QMainWindow):
     def _refresh_categories(self) -> None:
         self._clear_layout(self.category_layout)
         counts: dict[str, int] = {name: 0 for name in CATEGORY_NAMES}
-        counts["全部"] = len(self.cards)
-        for card in self.cards:
+        counts["全部"] = len(self.all_formal_cards)
+        for card in self.all_formal_cards:
             if card.category in counts:
                 counts[card.category] += 1
 
         for name in CATEGORY_NAMES:
-            selected = name == "全部"
+            selected = name == self.selected_category
             self.category_layout.addWidget(self._build_category_row(name, counts.get(name, 0), selected))
         self.category_layout.addStretch(1)
 
@@ -280,7 +289,13 @@ class MainWindow(QMainWindow):
         self.card_count_label.setText(f"共 {len(self.cards)} 条")
 
         if not self.cards:
-            empty = QLabel("还没有知识卡片\n点击“新建卡片”开始记录你的第一个知识点。")
+            if self.search_keyword:
+                message = "没有找到相关知识卡片"
+            elif self.selected_category != "全部":
+                message = f"“{self.selected_category}”分类下还没有知识卡片。"
+            else:
+                message = "还没有知识卡片\n点击“新建卡片”开始记录你的第一个知识点。"
+            empty = QLabel(message)
             empty.setObjectName("MutedText")
             empty.setWordWrap(True)
             self.card_list_layout.addWidget(empty)
@@ -298,6 +313,8 @@ class MainWindow(QMainWindow):
         row = QFrame()
         row.setObjectName("CategoryRow")
         row.setProperty("selected", "true" if selected else "false")
+        row.setCursor(Qt.PointingHandCursor)
+        row.mousePressEvent = self._make_category_click_handler(name)  # type: ignore[method-assign]
 
         layout = QHBoxLayout(row)
         layout.setContentsMargins(9, 0, 10, 0)
@@ -395,12 +412,30 @@ class MainWindow(QMainWindow):
 
         return handle_click
 
+    def _make_category_click_handler(self, category: str) -> Callable:
+        def handle_click(_event) -> None:
+            self.select_category(category)
+
+        return handle_click
+
     def _make_draft_click_handler(self, card_id: int | None) -> Callable:
         def handle_click(_event) -> None:
             if card_id is not None:
                 self.open_draft_editor(card_id)
 
         return handle_click
+
+    def select_category(self, category: str) -> None:
+        if category == self.selected_category:
+            return
+        self.selected_category = category
+        self.selected_card_id = None
+        self.reload_data(select_first=True)
+
+    def on_search_text_changed(self, text: str) -> None:
+        self.search_keyword = text.strip()
+        self.selected_card_id = None
+        self.reload_data(select_first=True)
 
     def select_card(self, card_id: int) -> None:
         self.selected_card_id = card_id
