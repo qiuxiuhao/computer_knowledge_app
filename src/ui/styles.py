@@ -68,6 +68,13 @@ QTextBrowser#PreviewBody {
     font-family: "SF Pro Text", "Helvetica Neue", Arial;
 }
 
+QTextBrowser#MarkdownTextBlock {
+    background: transparent;
+    border: none;
+    color: #111827;
+    padding: 0;
+}
+
 QComboBox#EditorInput::drop-down {
     subcontrol-origin: padding;
     subcontrol-position: top right;
@@ -99,6 +106,20 @@ QPushButton#EditButton {
     color: #111827;
     font-weight: 600;
     padding: 9px 16px;
+}
+
+QPushButton#CodeCopyButton {
+    background: #FFFFFF;
+    border: 1px solid #DDE3EC;
+    border-radius: 7px;
+    color: #2563EB;
+    font-size: 12px;
+    font-weight: 700;
+    padding: 5px 10px;
+}
+
+QPushButton#CodeCopyButton:hover {
+    background: #EFF6FF;
 }
 
 QPushButton#DeleteButton {
@@ -149,6 +170,33 @@ QFrame#DetailToolbar {
 
 QWidget#DetailContent {
     background: #FFFFFF;
+}
+
+QDialog#FullScreenReader {
+    background: #FFFFFF;
+}
+
+QFrame#FullScreenToolbar {
+    background: #FFFFFF;
+    border-bottom: 1px solid #E5E7EB;
+    min-height: 68px;
+    max-height: 68px;
+}
+
+QFrame#FullScreenContent {
+    background: #FFFFFF;
+}
+
+QLabel#FullScreenTitle {
+    font-size: 19px;
+    font-weight: 800;
+}
+
+QLabel#CopyStatus {
+    color: #2563EB;
+    font-size: 13px;
+    font-weight: 700;
+    min-width: 80px;
 }
 
 QLabel#SectionTitle {
@@ -329,6 +377,42 @@ QLabel#ArticleHeading {
 QLabel#ArticleText {
     color: #111827;
     line-height: 1.6;
+}
+
+QWidget#MarkdownReader {
+    background: transparent;
+}
+
+QFrame#CopyableCodeBlock {
+    background: #F8FAFC;
+    border: 1px solid #DDE3EC;
+    border-radius: 8px;
+}
+
+QFrame#CodeBlockHeader {
+    background: #F1F5F9;
+    border-top-left-radius: 8px;
+    border-top-right-radius: 8px;
+    min-height: 42px;
+    max-height: 42px;
+}
+
+QLabel#CodeBlockLanguage {
+    color: #64748B;
+    font-family: "SF Mono", Menlo, Monaco, Consolas, monospace;
+    font-size: 12px;
+    font-weight: 700;
+}
+
+QPlainTextEdit#CodeBlockText {
+    background: #F8FAFC;
+    border: none;
+    color: #111827;
+    font-family: "SF Mono", Menlo, Monaco, Consolas, monospace;
+    font-size: 13px;
+    line-height: 1.55;
+    padding: 12px 14px;
+    selection-background-color: #BFDBFE;
 }
 
 QFrame#CodeBlock {

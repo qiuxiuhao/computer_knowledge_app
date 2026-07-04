@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import unittest
 
-from src.utils.markdown_renderer import render_markdown_to_html
+from src.utils.markdown_renderer import parse_markdown_segments, render_markdown_to_html
 
 
 class MarkdownRendererTest(unittest.TestCase):
@@ -38,8 +38,37 @@ print("hello")
         self.assertIn("<blockquote>", html)
         self.assertIn("<table>", html)
         self.assertIn("<pre>", html)
+        self.assertIn("line-height: 1.82", html)
+        self.assertIn("border-left: 4px solid #BFDBFE", html)
+
+    def test_parse_fenced_code_blocks_preserves_language_and_code(self) -> None:
+        segments = parse_markdown_segments(
+            """# 命令记录
+
+先执行 bash 命令：
+
+```bash
+conda activate computer_knowledge_app
+python -m src.main
+```
+
+再看 Python：
+
+```python
+print("hello")
+```
+"""
+        )
+
+        self.assertEqual([segment.kind for segment in segments], ["markdown", "code", "markdown", "code"])
+        self.assertEqual(segments[1].language, "bash")
+        self.assertEqual(
+            segments[1].text,
+            "conda activate computer_knowledge_app\npython -m src.main",
+        )
+        self.assertEqual(segments[3].language, "python")
+        self.assertEqual(segments[3].text, 'print("hello")')
 
 
 if __name__ == "__main__":
     unittest.main()
-

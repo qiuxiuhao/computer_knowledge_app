@@ -19,7 +19,6 @@ from PySide6.QtWidgets import (
     QPushButton,
     QScrollArea,
     QSplitter,
-    QTextBrowser,
     QTextEdit,
     QVBoxLayout,
     QWidget,
@@ -40,8 +39,9 @@ from src.services.card_service import (
     update_card,
 )
 from src.ui.mock_data import CATEGORIES
+from src.ui.fullscreen_reader import FullScreenReaderDialog
+from src.ui.markdown_reader import MarkdownReaderWidget
 from src.ui.styles import APP_STYLE
-from src.utils.markdown_renderer import render_markdown_to_html
 
 SCENARIOS = [
     "知识点",
@@ -145,6 +145,7 @@ class MainWindow(QMainWindow):
         self.categories_collapsed = True
         self.drafts_collapsed = True
         self.search_input = QLineEdit()
+        self.fullscreen_reader: FullScreenReaderDialog | None = None
 
         self.setWindowTitle("个人计算机知识库")
         self.resize(1440, 900)
@@ -742,6 +743,7 @@ class MainWindow(QMainWindow):
         self._set_detail_actions(
             "阅读模式",
             [
+                ("全屏阅读", "SecondaryButton", lambda: self.open_fullscreen_reader(card)),
                 ("编辑", "EditButton", lambda: self.show_edit_card_editor(card)),
                 ("删除", "DeleteButton", lambda: self.confirm_delete_card(card)),
             ],
@@ -774,14 +776,17 @@ class MainWindow(QMainWindow):
         body_title.setObjectName("ArticleHeading")
         layout.addWidget(body_title)
 
-        preview = QTextBrowser()
-        preview.setObjectName("PreviewBody")
-        preview.setOpenExternalLinks(False)
-        preview.setHtml(render_markdown_to_html(card.content))
-        preview.setMinimumHeight(360)
+        preview = MarkdownReaderWidget(card.content, self.show_code_copied)
         layout.addWidget(preview, 1)
 
         return content
+
+    def open_fullscreen_reader(self, card: Card) -> None:
+        self.fullscreen_reader = FullScreenReaderDialog(card, self)
+        self.fullscreen_reader.showFullScreen()
+
+    def show_code_copied(self) -> None:
+        self.statusBar().showMessage("已复制代码", 1500)
 
     def _build_edit_detail(self, card: Card | None) -> QWidget:
         content = QWidget()
