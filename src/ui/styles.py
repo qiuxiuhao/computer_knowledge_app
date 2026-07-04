@@ -130,13 +130,21 @@ QPushButton#DraftDeleteButton {
 }
 
 QFrame#Sidebar,
-QFrame#ListPane {
+QFrame#ListPane,
+QFrame#UnifiedSidebar {
     background: #F9FAFB;
     border-right: 1px solid #E5E7EB;
 }
 
 QFrame#DetailPane {
     background: #FFFFFF;
+}
+
+QFrame#DetailToolbar {
+    background: #FFFFFF;
+    border-bottom: 1px solid #E5E7EB;
+    min-height: 64px;
+    max-height: 64px;
 }
 
 QWidget#DetailContent {
@@ -153,9 +161,36 @@ QLabel#MutedText {
     color: #6B7280;
 }
 
+QFrame#CollapseHeader {
+    border-radius: 8px;
+    min-height: 36px;
+}
+
+QFrame#CollapseHeader:hover {
+    background: #EFF6FF;
+}
+
+QScrollArea#CategoryScroll {
+    max-height: 286px;
+}
+
+QLabel#CollapseArrow {
+    min-width: 22px;
+    max-width: 22px;
+    min-height: 22px;
+    max-height: 22px;
+}
+
+QLabel#DetailModeLabel {
+    color: #374151;
+    font-size: 15px;
+    font-weight: 700;
+}
+
 QFrame#CategoryRow {
     border-radius: 8px;
     min-height: 38px;
+    max-height: 38px;
 }
 
 QFrame#CategoryRow[selected="true"] {

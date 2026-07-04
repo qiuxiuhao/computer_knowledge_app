@@ -92,6 +92,39 @@ class EditorComboBox(QComboBox):
         painter.drawLine(center_x, center_y + 2, center_x + 5, center_y - 3)
 
 
+class CollapseArrowLabel(QLabel):
+    """Small painted chevron for collapsible sidebar sections."""
+
+    def __init__(self) -> None:
+        super().__init__()
+        self.expanded = False
+        self.setFixedSize(22, 22)
+
+    def set_expanded(self, expanded: bool) -> None:
+        self.expanded = expanded
+        self.update()
+
+    def paintEvent(self, event) -> None:  # type: ignore[override]
+        super().paintEvent(event)
+
+        painter = QPainter(self)
+        painter.setRenderHint(QPainter.RenderHint.Antialiasing)
+        pen = QPen(QColor("#2563EB"))
+        pen.setWidthF(2.4)
+        pen.setCapStyle(Qt.PenCapStyle.RoundCap)
+        pen.setJoinStyle(Qt.PenJoinStyle.RoundJoin)
+        painter.setPen(pen)
+
+        center_x = self.width() // 2
+        center_y = self.height() // 2
+        if self.expanded:
+            painter.drawLine(center_x - 5, center_y - 3, center_x, center_y + 3)
+            painter.drawLine(center_x, center_y + 3, center_x + 5, center_y - 3)
+        else:
+            painter.drawLine(center_x - 3, center_y - 5, center_x + 3, center_y)
+            painter.drawLine(center_x + 3, center_y, center_x - 3, center_y + 5)
+
+
 class MainWindow(QMainWindow):
     """Main window for the local knowledge base."""
 
@@ -109,6 +142,9 @@ class MainWindow(QMainWindow):
         self.search_keyword = ""
         self.active_draft_editor_id: int | None = None
         self.card_widgets: dict[int, QFrame] = {}
+        self.categories_collapsed = True
+        self.drafts_collapsed = True
+        self.search_input = QLineEdit()
 
         self.setWindowTitle("个人计算机知识库")
         self.resize(1440, 900)
@@ -168,21 +204,10 @@ class MainWindow(QMainWindow):
 
         layout.addSpacing(34)
 
-        self.search_input = QLineEdit()
-        self.search_input.setObjectName("SearchBox")
-        self.search_input.setPlaceholderText("搜索标题、标签、正文...")
-        self.search_input.setClearButtonEnabled(False)
-        self.search_input.textChanged.connect(self.on_search_text_changed)
-        layout.addWidget(self.search_input, 1)
-
-        new_card = QPushButton("+  新建卡片")
-        new_card.setObjectName("PrimaryButton")
-        new_card.clicked.connect(self.show_new_card_editor)
-        layout.addWidget(new_card)
-
         import_button = QPushButton("导入")
         import_button.setObjectName("SecondaryButton")
         import_button.setToolTip("导入功能将在后续版本支持")
+        layout.addStretch(1)
         layout.addWidget(import_button)
 
         return top_bar
@@ -191,45 +216,74 @@ class MainWindow(QMainWindow):
         splitter = QSplitter(Qt.Horizontal)
         splitter.setChildrenCollapsible(False)
         splitter.addWidget(self._build_sidebar())
-        splitter.addWidget(self._build_card_list_pane())
         splitter.addWidget(self._build_detail_pane())
-        splitter.setSizes([290, 390, 760])
+        splitter.setSizes([420, 1020])
         splitter.setHandleWidth(1)
         return splitter
 
     def _build_sidebar(self) -> QWidget:
         sidebar = QFrame()
-        sidebar.setObjectName("Sidebar")
-        sidebar.setMinimumWidth(250)
+        sidebar.setObjectName("UnifiedSidebar")
+        sidebar.setMinimumWidth(360)
+        sidebar.setMaximumWidth(520)
 
         layout = QVBoxLayout(sidebar)
-        layout.setContentsMargins(20, 24, 20, 28)
-        layout.setSpacing(14)
+        layout.setContentsMargins(20, 20, 20, 22)
+        layout.setSpacing(12)
 
-        title = QLabel("分类")
-        title.setObjectName("SectionTitle")
-        layout.addWidget(title)
+        self.search_input.setObjectName("SearchBox")
+        self.search_input.setPlaceholderText("搜索标题、标签、正文...")
+        self.search_input.setClearButtonEnabled(False)
+        self.search_input.textChanged.connect(self.on_search_text_changed)
+        layout.addWidget(self.search_input)
+
+        new_card = QPushButton("+  新建卡片")
+        new_card.setObjectName("PrimaryButton")
+        new_card.clicked.connect(self.show_new_card_editor)
+        layout.addWidget(new_card)
+
+        self.category_toggle_label = CollapseArrowLabel()
+        self.category_toggle_label.setObjectName("CollapseArrow")
+        self.category_header = self._build_collapse_header(
+            "分类",
+            self.category_toggle_label,
+            self.toggle_categories,
+        )
+        layout.addWidget(self.category_header)
 
         self.category_container = QWidget()
         self.category_layout = QVBoxLayout(self.category_container)
         self.category_layout.setContentsMargins(0, 0, 0, 0)
         self.category_layout.setSpacing(7)
-        layout.addWidget(self.category_container, 1)
+        self.category_scroll = QScrollArea()
+        self.category_scroll.setObjectName("CategoryScroll")
+        self.category_scroll.setWidgetResizable(True)
+        self.category_scroll.setHorizontalScrollBarPolicy(Qt.ScrollBarAlwaysOff)
+        self.category_scroll.setMaximumHeight(286)
+        self.category_scroll.setWidget(self.category_container)
+        layout.addWidget(self.category_scroll)
 
         divider = QFrame()
         divider.setObjectName("Divider")
         layout.addWidget(divider)
 
-        draft_header = QHBoxLayout()
-        draft_title = QLabel("草稿")
-        draft_title.setObjectName("SectionTitle")
+        self.draft_toggle_label = CollapseArrowLabel()
+        self.draft_toggle_label.setObjectName("CollapseArrow")
         self.draft_count_label = QLabel("0")
         self.draft_count_label.setObjectName("SectionCount")
         self.draft_count_label.setAlignment(Qt.AlignRight | Qt.AlignVCenter)
-        draft_header.addWidget(draft_title)
-        draft_header.addStretch(1)
-        draft_header.addWidget(self.draft_count_label)
-        layout.addLayout(draft_header)
+        self.draft_header = self._build_collapse_header(
+            "草稿",
+            self.draft_toggle_label,
+            self.toggle_drafts,
+            count_label=self.draft_count_label,
+        )
+        layout.addWidget(self.draft_header)
+
+        self.draft_section = QWidget()
+        draft_section_layout = QVBoxLayout(self.draft_section)
+        draft_section_layout.setContentsMargins(0, 0, 0, 0)
+        draft_section_layout.setSpacing(10)
 
         draft_input_row = QHBoxLayout()
         draft_input_row.setContentsMargins(0, 0, 0, 0)
@@ -247,38 +301,28 @@ class MainWindow(QMainWindow):
         add_draft_button.clicked.connect(self.create_draft_from_input)
         draft_input_row.addWidget(add_draft_button)
 
-        layout.addLayout(draft_input_row)
+        draft_section_layout.addLayout(draft_input_row)
 
         self.draft_container = QWidget()
         self.draft_layout = QVBoxLayout(self.draft_container)
         self.draft_layout.setContentsMargins(0, 0, 0, 0)
         self.draft_layout.setSpacing(8)
-        layout.addWidget(self.draft_container)
+        draft_section_layout.addWidget(self.draft_container)
+        layout.addWidget(self.draft_section)
 
-        return sidebar
-
-    def _build_card_list_pane(self) -> QWidget:
-        pane = QFrame()
-        pane.setObjectName("ListPane")
-        pane.setMinimumWidth(340)
-
-        layout = QVBoxLayout(pane)
-        layout.setContentsMargins(20, 24, 20, 24)
-        layout.setSpacing(16)
+        card_divider = QFrame()
+        card_divider.setObjectName("Divider")
+        layout.addWidget(card_divider)
 
         header = QHBoxLayout()
-        title = QLabel("知识卡片")
-        title.setObjectName("SectionTitle")
+        self.card_list_title = QLabel("知识卡片")
+        self.card_list_title.setObjectName("SectionTitle")
         self.card_count_label = QLabel("共 0 条")
         self.card_count_label.setObjectName("SectionCount")
-        header.addWidget(title)
-        header.addSpacing(14)
+        header.addWidget(self.card_list_title)
+        header.addSpacing(12)
         header.addWidget(self.card_count_label)
         header.addStretch(1)
-        filter_label = QLabel("筛选")
-        filter_label.setObjectName("MutedText")
-        filter_label.setToolTip("分类过滤将在后续阶段完善")
-        header.addWidget(filter_label)
         layout.addLayout(header)
 
         scroll = QScrollArea()
@@ -287,11 +331,60 @@ class MainWindow(QMainWindow):
         self.card_list_content = QWidget()
         self.card_list_layout = QVBoxLayout(self.card_list_content)
         self.card_list_layout.setContentsMargins(0, 0, 0, 0)
-        self.card_list_layout.setSpacing(14)
+        self.card_list_layout.setSpacing(12)
         scroll.setWidget(self.card_list_content)
         layout.addWidget(scroll, 1)
 
-        return pane
+        self._sync_collapsible_visibility()
+
+        return sidebar
+
+    def _build_collapse_header(
+        self,
+        title_text: str,
+        arrow_label: QLabel,
+        on_click: Callable[[], None],
+        *,
+        count_label: QLabel | None = None,
+    ) -> QWidget:
+        header = QFrame()
+        header.setObjectName("CollapseHeader")
+        header.setCursor(Qt.PointingHandCursor)
+        header.mousePressEvent = lambda _event: on_click()  # type: ignore[method-assign]
+
+        layout = QHBoxLayout(header)
+        layout.setContentsMargins(10, 0, 10, 0)
+        layout.setSpacing(8)
+
+        title = QLabel(title_text)
+        title.setObjectName("SectionTitle")
+        layout.addWidget(title)
+        if count_label is not None:
+            layout.addWidget(count_label)
+        layout.addStretch(1)
+        layout.addWidget(arrow_label)
+
+        return header
+
+    def toggle_categories(self) -> None:
+        self.categories_collapsed = not self.categories_collapsed
+        self._sync_collapsible_visibility()
+
+    def toggle_drafts(self) -> None:
+        self.drafts_collapsed = not self.drafts_collapsed
+        self._sync_collapsible_visibility()
+
+    def _sync_collapsible_visibility(self) -> None:
+        if hasattr(self, "category_scroll"):
+            self.category_scroll.setVisible(not self.categories_collapsed)
+        if hasattr(self, "category_container"):
+            self.category_container.setVisible(not self.categories_collapsed)
+        if hasattr(self, "draft_section"):
+            self.draft_section.setVisible(not self.drafts_collapsed)
+        if hasattr(self, "category_toggle_label"):
+            self.category_toggle_label.set_expanded(not self.categories_collapsed)
+        if hasattr(self, "draft_toggle_label"):
+            self.draft_toggle_label.set_expanded(not self.drafts_collapsed)
 
     def _build_detail_pane(self) -> QWidget:
         pane = QFrame()
@@ -302,10 +395,29 @@ class MainWindow(QMainWindow):
         outer.setContentsMargins(0, 0, 0, 0)
         outer.setSpacing(0)
 
+        toolbar = QFrame()
+        toolbar.setObjectName("DetailToolbar")
+        toolbar_layout = QHBoxLayout(toolbar)
+        toolbar_layout.setContentsMargins(40, 0, 48, 0)
+        toolbar_layout.setSpacing(12)
+
+        self.detail_mode_label = QLabel("知识卡片")
+        self.detail_mode_label.setObjectName("DetailModeLabel")
+        toolbar_layout.addWidget(self.detail_mode_label)
+        toolbar_layout.addStretch(1)
+
+        self.detail_action_container = QWidget()
+        self.detail_action_layout = QHBoxLayout(self.detail_action_container)
+        self.detail_action_layout.setContentsMargins(0, 0, 0, 0)
+        self.detail_action_layout.setSpacing(10)
+        toolbar_layout.addWidget(self.detail_action_container)
+
+        outer.addWidget(toolbar)
+
         self.detail_scroll = QScrollArea()
         self.detail_scroll.setWidgetResizable(True)
         self.detail_scroll.setHorizontalScrollBarPolicy(Qt.ScrollBarAlwaysOff)
-        outer.addWidget(self.detail_scroll)
+        outer.addWidget(self.detail_scroll, 1)
 
         return pane
 
@@ -320,7 +432,7 @@ class MainWindow(QMainWindow):
         for name in CATEGORY_NAMES:
             selected = name == self.selected_category
             self.category_layout.addWidget(self._build_category_row(name, counts.get(name, 0), selected))
-        self.category_layout.addStretch(1)
+        self._sync_collapsible_visibility()
 
     def _refresh_drafts(self) -> None:
         self._clear_layout(self.draft_layout)
@@ -330,14 +442,17 @@ class MainWindow(QMainWindow):
             empty = QLabel("暂无草稿")
             empty.setObjectName("MutedText")
             self.draft_layout.addWidget(empty)
+            self._sync_collapsible_visibility()
             return
 
         for draft in self.drafts:
             self.draft_layout.addWidget(self._build_draft_row(draft))
+        self._sync_collapsible_visibility()
 
     def _refresh_card_list(self) -> None:
         self._clear_layout(self.card_list_layout)
         self.card_widgets.clear()
+        self.card_list_title.setText("搜索结果" if self.search_keyword else "知识卡片")
         self.card_count_label.setText(f"共 {len(self.cards)} 条")
 
         if not self.cards:
@@ -366,6 +481,7 @@ class MainWindow(QMainWindow):
         row.setObjectName("CategoryRow")
         row.setProperty("selected", "true" if selected else "false")
         row.setCursor(Qt.PointingHandCursor)
+        row.setFixedHeight(38)
         row.mousePressEvent = self._make_category_click_handler(name)  # type: ignore[method-assign]
 
         layout = QHBoxLayout(row)
@@ -623,28 +739,24 @@ class MainWindow(QMainWindow):
             self.reload_data(selected_card_id=self.selected_card_id)
 
     def _build_preview_detail(self, card: Card) -> QWidget:
+        self._set_detail_actions(
+            "阅读模式",
+            [
+                ("编辑", "EditButton", lambda: self.show_edit_card_editor(card)),
+                ("删除", "DeleteButton", lambda: self.confirm_delete_card(card)),
+            ],
+        )
+
         content = QWidget()
         content.setObjectName("DetailContent")
         layout = QVBoxLayout(content)
         layout.setContentsMargins(40, 44, 48, 40)
         layout.setSpacing(18)
 
-        top = QHBoxLayout()
         title = QLabel(card.title)
         title.setObjectName("DetailTitle")
         title.setWordWrap(True)
-        top.addWidget(title, 1)
-
-        edit_button = QPushButton("编辑")
-        edit_button.setObjectName("EditButton")
-        edit_button.clicked.connect(lambda: self.show_edit_card_editor(card))
-        top.addWidget(edit_button)
-
-        delete_button = QPushButton("删除")
-        delete_button.setObjectName("DeleteButton")
-        delete_button.clicked.connect(lambda: self.confirm_delete_card(card))
-        top.addWidget(delete_button)
-        layout.addLayout(top)
+        layout.addWidget(title)
 
         layout.addSpacing(16)
         layout.addLayout(self._build_meta_row("用途场景：", card.scenario or "未填写"))
@@ -736,16 +848,6 @@ class MainWindow(QMainWindow):
         content_input.setMinimumHeight(320)
         layout.addWidget(content_input, 1)
 
-        actions = QHBoxLayout()
-        actions.addStretch(1)
-        save_button = QPushButton("保存")
-        save_button.setObjectName("PrimaryButton")
-        cancel_button = QPushButton("取消")
-        cancel_button.setObjectName("SecondaryButton")
-        actions.addWidget(save_button)
-        actions.addWidget(cancel_button)
-        layout.addLayout(actions)
-
         def collect_fields() -> dict[str, str]:
             return {
                 "title": title_input.text(),
@@ -756,8 +858,13 @@ class MainWindow(QMainWindow):
                 "content": content_input.toPlainText(),
             }
 
-        save_button.clicked.connect(lambda: self.save_editor(card, collect_fields()))
-        cancel_button.clicked.connect(lambda: self.cancel_editor(card))
+        self._set_detail_actions(
+            "编辑模式",
+            [
+                ("保存", "PrimaryButton", lambda: self.save_editor(card, collect_fields())),
+                ("取消", "SecondaryButton", lambda: self.cancel_editor(card)),
+            ],
+        )
 
         return content
 
@@ -767,6 +874,7 @@ class MainWindow(QMainWindow):
         self._show_selected_card()
 
     def _build_empty_detail(self) -> QWidget:
+        self._set_detail_actions("知识卡片", [])
         content = QWidget()
         content.setObjectName("DetailContent")
         layout = QVBoxLayout(content)
@@ -803,6 +911,20 @@ class MainWindow(QMainWindow):
         layout.addWidget(label)
         layout.addWidget(field)
         return wrapper
+
+    def _set_detail_actions(
+        self,
+        mode_label: str,
+        actions: list[tuple[str, str, Callable[[], None]]],
+    ) -> None:
+        self.detail_mode_label.setText(mode_label)
+        self._clear_layout(self.detail_action_layout)
+
+        for text, object_name, handler in actions:
+            button = QPushButton(text)
+            button.setObjectName(object_name)
+            button.clicked.connect(handler)
+            self.detail_action_layout.addWidget(button)
 
     def _set_detail_widget(self, widget: QWidget) -> None:
         old_widget = self.detail_scroll.takeWidget()
