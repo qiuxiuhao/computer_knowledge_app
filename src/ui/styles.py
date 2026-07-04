@@ -390,6 +390,98 @@ QWidget#MarkdownReader {
     background: transparent;
 }
 
+QWidget#MarkdownBlockEditor,
+QWidget#BlockEditorBlocks {
+    background: transparent;
+}
+
+QFrame#BlockEditorToolbar {
+    background: transparent;
+}
+
+QLabel#RawModeNotice {
+    background: #FFFBEB;
+    border: 1px solid #FDE68A;
+    border-radius: 8px;
+    color: #92400E;
+    padding: 9px 12px;
+}
+
+QFrame#TextBlockEditor {
+    background: #FFFFFF;
+    border: 1px solid #DDE3EC;
+    border-radius: 8px;
+}
+
+QFrame#CodeBlockEditor {
+    background: #F8FAFC;
+    border: 1px solid #CBD5E1;
+    border-radius: 8px;
+}
+
+QLabel#BlockTitle {
+    color: #374151;
+    font-size: 13px;
+    font-weight: 800;
+}
+
+QPushButton#BlockActionButton {
+    background: #FFFFFF;
+    border: 1px solid #DDE3EC;
+    border-radius: 7px;
+    color: #374151;
+    font-size: 12px;
+    font-weight: 700;
+    padding: 5px 9px;
+}
+
+QPushButton#BlockActionButton:disabled {
+    color: #9CA3AF;
+}
+
+QPushButton#BlockDeleteButton {
+    background: #FFFFFF;
+    border: 1px solid #FECACA;
+    border-radius: 7px;
+    color: #DC2626;
+    font-size: 12px;
+    font-weight: 700;
+    padding: 5px 9px;
+}
+
+QComboBox#BlockLanguageSelect {
+    background: #FFFFFF;
+    border: 1px solid #DDE3EC;
+    border-radius: 8px;
+    color: #111827;
+    font-family: "SF Mono", Menlo, Monaco, Consolas, monospace;
+    font-size: 13px;
+    padding: 7px 10px;
+}
+
+QTextEdit#BlockTextInput {
+    background: #FFFFFF;
+    border: 1px solid #E5E7EB;
+    border-radius: 8px;
+    color: #111827;
+    font-size: 14px;
+    line-height: 1.6;
+    padding: 10px;
+    selection-background-color: #BFDBFE;
+}
+
+QPlainTextEdit#BlockCodeInput {
+    background: #FFFFFF;
+    border: 1px solid #DDE3EC;
+    border-radius: 8px;
+    color: #111827;
+    font-family: "SF Mono", Menlo, Monaco, Consolas, monospace;
+    font-size: 13px;
+    line-height: 1.55;
+    padding: 10px;
+    selection-background-color: #BFDBFE;
+}
+
 QFrame#CopyableCodeBlock {
     background: #F8FAFC;
     border: 1px solid #DDE3EC;

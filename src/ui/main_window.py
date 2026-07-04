@@ -38,6 +38,7 @@ from src.services.card_service import (
     search_cards,
     update_card,
 )
+from src.ui.block_editor import MarkdownBlockEditor
 from src.ui.mock_data import CATEGORIES
 from src.ui.fullscreen_reader import FullScreenReaderDialog
 from src.ui.markdown_reader import MarkdownReaderWidget
@@ -904,11 +905,7 @@ class MainWindow(QMainWindow):
         content_label.setObjectName("MetaLabel")
         layout.addWidget(content_label)
 
-        content_input = QTextEdit()
-        content_input.setObjectName("EditorTextArea")
-        content_input.setPlaceholderText("在这里输入 Markdown 原文...")
-        content_input.setPlainText(card.content if card else "")
-        content_input.setMinimumHeight(320)
+        content_input = MarkdownBlockEditor(card.content if card else "")
         layout.addWidget(content_input, 1)
 
         self.editor_fields = {
@@ -1007,6 +1004,8 @@ class MainWindow(QMainWindow):
                 fields[name] = widget.text().strip()
             elif isinstance(widget, QTextEdit):
                 fields[name] = widget.toPlainText()
+            elif isinstance(widget, MarkdownBlockEditor):
+                fields[name] = widget.to_markdown()
         return fields
 
     def _connect_editor_change_signals(self) -> None:
@@ -1017,6 +1016,8 @@ class MainWindow(QMainWindow):
                 widget.textChanged.connect(self.mark_editor_dirty)
             elif isinstance(widget, QTextEdit):
                 widget.textChanged.connect(self.mark_editor_dirty)
+            elif isinstance(widget, MarkdownBlockEditor):
+                widget.contentChanged.connect(self.mark_editor_dirty)
 
     def mark_editor_dirty(self) -> None:
         if self.current_editor_card is None:

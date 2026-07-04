@@ -12,6 +12,7 @@ from PySide6.QtWidgets import (
     QLabel,
     QPlainTextEdit,
     QPushButton,
+    QSizePolicy,
     QTextBrowser,
     QVBoxLayout,
     QWidget,
@@ -59,6 +60,7 @@ class CodeBlockWidget(QFrame):
         self.code = segment.text
         self.on_copy_success = on_copy_success
         self.setObjectName("CopyableCodeBlock")
+        self.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Fixed)
 
         layout = QVBoxLayout(self)
         layout.setContentsMargins(0, 0, 0, 0)
@@ -85,23 +87,23 @@ class CodeBlockWidget(QFrame):
         code_view.setObjectName("CodeBlockText")
         code_view.setPlainText(self.code)
         code_view.setReadOnly(True)
+        code_view.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Fixed)
         code_view.setLineWrapMode(QPlainTextEdit.NoWrap)
         code_view.setHorizontalScrollBarPolicy(Qt.ScrollBarAsNeeded)
         code_view.setVerticalScrollBarPolicy(Qt.ScrollBarAsNeeded)
-        code_view.setMinimumHeight(self._code_view_height())
-        code_view.setMaximumHeight(self._code_view_height(maximum=True))
+        code_height = self._code_view_height()
+        code_view.setFixedHeight(code_height)
         layout.addWidget(code_view)
+        self.setFixedHeight(42 + code_height)
 
     def copy_code(self) -> None:
         QApplication.clipboard().setText(self.code)
         if self.on_copy_success is not None:
             self.on_copy_success()
 
-    def _code_view_height(self, *, maximum: bool = False) -> int:
+    def _code_view_height(self) -> int:
         line_count = max(1, self.code.count("\n") + 1)
         natural_height = 22 * line_count + 24
-        if maximum:
-            return min(max(natural_height, 82), 420)
         return min(max(natural_height, 82), 420)
 
 
@@ -128,4 +130,3 @@ class MarkdownReaderWidget(QWidget):
             else:
                 empty = MarkdownTextBlock("暂无正文内容。")
                 layout.addWidget(empty)
-

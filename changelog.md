@@ -2,6 +2,24 @@
 
 本文档记录项目变更。
 
+## 2026-07-04
+
+### v2.4.1 Added
+
+- 编辑模式新增块编辑器，可通过“添加文字块”和“添加代码块”组合知识卡片正文。
+- 代码块编辑提供语言下拉框，默认包含 text、bash、python、json、markdown、yaml 和 sql。
+- 保存时会把文字块和代码块序列化为标准 Markdown，并继续写入 `cards.content`。
+- 编辑已有卡片时会尝试把 `cards.content` 解析为文字块和代码块。
+- 无法安全解析的 Markdown 会进入原始 Markdown 模式，避免破坏原文。
+
+### v2.4.1 Notes
+
+- 未修改 `cards` 表结构。
+- 未修改真实用户数据库路径。
+- 未修改 `AGENTS.md`。
+- 未添加收藏功能、独立待补充页面、常用标签侧栏、`todos` 表或 `favorites` 表。
+- 阅读模式、全屏阅读和复制 Markdown 仍以 `cards.content` 为唯一可信 Markdown 原文。
+
 ## 2026-07-01
 
 ### Stage 9 Added
