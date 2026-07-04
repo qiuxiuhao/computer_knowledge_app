@@ -42,6 +42,7 @@ from src.ui.mock_data import CATEGORIES
 from src.ui.fullscreen_reader import FullScreenReaderDialog
 from src.ui.markdown_reader import MarkdownReaderWidget
 from src.ui.styles import APP_STYLE
+from src.utils.markdown_normalizer import normalize_markdown
 
 SCENARIOS = [
     "知识点",
@@ -694,6 +695,7 @@ class MainWindow(QMainWindow):
             QMessageBox.warning(self, "无法保存", "标题不能为空。")
             return
         self.autosave_timer.stop()
+        markdown_content = normalize_markdown(fields["content"])
 
         if card is None:
             saved = create_card(
@@ -702,7 +704,7 @@ class MainWindow(QMainWindow):
                 category=fields["category"],
                 tags=fields["tags"],
                 summary=fields["summary"],
-                content=fields["content"],
+                content=markdown_content,
                 keywords=fields["keywords"],
                 source=fields["source"],
                 is_draft=0,
@@ -717,7 +719,7 @@ class MainWindow(QMainWindow):
                 category=fields["category"],
                 tags=fields["tags"],
                 summary=fields["summary"],
-                content=fields["content"],
+                content=markdown_content,
                 keywords=fields["keywords"],
                 source=fields["source"],
                 is_draft=0,
@@ -852,7 +854,6 @@ class MainWindow(QMainWindow):
         scenario_input.setEditable(True)
         scenario_input.addItems(SCENARIOS)
         self._set_combo_text(scenario_input, card.scenario if card else "知识点")
-        layout.addWidget(self._build_editor_field("用途场景", scenario_input))
 
         category_input = EditorComboBox()
         category_input.setObjectName("EditorInput")
@@ -863,7 +864,6 @@ class MainWindow(QMainWindow):
         category_completer.setFilterMode(Qt.MatchFlag.MatchContains)
         category_input.setCompleter(category_completer)
         self._set_combo_text(category_input, card.category if card else "深度学习")
-        layout.addWidget(self._build_editor_field("分类", category_input))
 
         tags_input = QLineEdit(card.tags if card else "")
         tags_input.setObjectName("EditorInput")
@@ -872,30 +872,42 @@ class MainWindow(QMainWindow):
         tag_completer.setCaseSensitivity(Qt.CaseSensitivity.CaseInsensitive)
         tag_completer.setFilterMode(Qt.MatchFlag.MatchContains)
         tags_input.setCompleter(tag_completer)
-        layout.addWidget(self._build_editor_field("标签", tags_input))
-
-        summary_input = QLineEdit(card.summary if card else "")
-        summary_input.setObjectName("EditorInput")
-        summary_input.setPlaceholderText("一句话总结")
-        layout.addWidget(self._build_editor_field("一句话总结", summary_input))
 
         keywords_input = QLineEdit(card.keywords if card else "")
         keywords_input.setObjectName("EditorInput")
         keywords_input.setPlaceholderText("用于搜索的额外关键词")
-        layout.addWidget(self._build_editor_field("关键词", keywords_input))
 
         source_input = QLineEdit(card.source if card else "")
         source_input.setObjectName("EditorInput")
         source_input.setPlaceholderText("来源链接或来源说明")
+
+        summary_input = QLineEdit(card.summary if card else "")
+        summary_input.setObjectName("EditorInput")
+        summary_input.setPlaceholderText("一句话总结")
+
+        layout.addWidget(
+            self._build_editor_two_column_row(
+                self._build_editor_field("用途场景", scenario_input),
+                self._build_editor_field("分类", category_input),
+            )
+        )
+        layout.addWidget(
+            self._build_editor_two_column_row(
+                self._build_editor_field("标签", tags_input),
+                self._build_editor_field("关键词", keywords_input),
+            )
+        )
         layout.addWidget(self._build_editor_field("来源", source_input))
+        layout.addWidget(self._build_editor_field("一句话总结", summary_input))
 
         content_label = QLabel("Markdown 正文")
         content_label.setObjectName("MetaLabel")
         layout.addWidget(content_label)
 
-        content_input = QTextEdit(card.content if card else "")
+        content_input = QTextEdit()
         content_input.setObjectName("EditorTextArea")
         content_input.setPlaceholderText("在这里输入 Markdown 原文...")
+        content_input.setPlainText(card.content if card else "")
         content_input.setMinimumHeight(320)
         layout.addWidget(content_input, 1)
 
@@ -977,6 +989,15 @@ class MainWindow(QMainWindow):
         layout.addWidget(field)
         return wrapper
 
+    def _build_editor_two_column_row(self, left: QWidget, right: QWidget) -> QWidget:
+        wrapper = QWidget()
+        layout = QHBoxLayout(wrapper)
+        layout.setContentsMargins(0, 0, 0, 0)
+        layout.setSpacing(18)
+        layout.addWidget(left, 1)
+        layout.addWidget(right, 1)
+        return wrapper
+
     def collect_editor_fields(self) -> dict[str, str]:
         fields: dict[str, str] = {}
         for name, widget in self.editor_fields.items():
@@ -1022,6 +1043,7 @@ class MainWindow(QMainWindow):
         self.autosave_timer.stop()
         fields = self.collect_editor_fields()
         title = fields["title"].strip() or "未命名草稿"
+        markdown_content = normalize_markdown(fields["content"])
 
         try:
             saved = update_card(
@@ -1032,7 +1054,7 @@ class MainWindow(QMainWindow):
                 category=fields["category"],
                 tags=fields["tags"],
                 summary=fields["summary"],
-                content=fields["content"],
+                content=markdown_content,
                 keywords=fields["keywords"],
                 source=fields["source"],
                 is_draft=1,
