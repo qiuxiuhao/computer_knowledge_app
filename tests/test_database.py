@@ -144,6 +144,30 @@ class DatabaseLayerTest(unittest.TestCase):
         with self.assertRaises(ValueError):
             create_draft_card("   ", db_path=self.db_path)
 
+    def test_update_draft_extra_fields_keeps_draft_state(self) -> None:
+        draft = create_draft_card("自动保存草稿", db_path=self.db_path)
+
+        updated = update_card(
+            int(draft.id),
+            db_path=self.db_path,
+            title="自动保存后的标题",
+            scenario="知识点",
+            category="Python",
+            tags="draft, autosave",
+            summary="自动保存摘要",
+            content="自动保存正文",
+            keywords="草稿, 自动保存",
+            source="课堂笔记",
+            is_draft=1,
+        )
+
+        self.assertIsNotNone(updated)
+        self.assertEqual(updated.title, "自动保存后的标题")
+        self.assertEqual(updated.keywords, "草稿, 自动保存")
+        self.assertEqual(updated.source, "课堂笔记")
+        self.assertEqual(updated.is_draft, 1)
+        self.assertEqual([card.id for card in get_all_draft_cards(self.db_path)], [draft.id])
+
     def test_insert_sample_data(self) -> None:
         cards = insert_sample_data(self.db_path)
 

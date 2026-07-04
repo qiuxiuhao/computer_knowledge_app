@@ -5,7 +5,7 @@ from __future__ import annotations
 from pathlib import Path
 from typing import Callable
 
-from PySide6.QtCore import Qt
+from PySide6.QtCore import QTimer, Qt
 from PySide6.QtGui import QColor, QPainter, QPen
 from PySide6.QtWidgets import (
     QCompleter,
@@ -146,6 +146,13 @@ class MainWindow(QMainWindow):
         self.drafts_collapsed = True
         self.search_input = QLineEdit()
         self.fullscreen_reader: FullScreenReaderDialog | None = None
+        self.current_editor_card: Card | None = None
+        self.current_editor_dirty = False
+        self.editor_fields: dict[str, QWidget] = {}
+        self.autosave_timer = QTimer(self)
+        self.autosave_timer.setSingleShot(True)
+        self.autosave_timer.setInterval(2000)
+        self.autosave_timer.timeout.connect(self.flush_draft_autosave)
 
         self.setWindowTitle("个人计算机知识库")
         self.resize(1440, 900)
@@ -405,6 +412,9 @@ class MainWindow(QMainWindow):
         self.detail_mode_label = QLabel("知识卡片")
         self.detail_mode_label.setObjectName("DetailModeLabel")
         toolbar_layout.addWidget(self.detail_mode_label)
+        self.autosave_status_label = QLabel("")
+        self.autosave_status_label.setObjectName("AutosaveStatus")
+        toolbar_layout.addWidget(self.autosave_status_label)
         toolbar_layout.addStretch(1)
 
         self.detail_action_container = QWidget()
@@ -602,18 +612,27 @@ class MainWindow(QMainWindow):
     def select_category(self, category: str) -> None:
         if category == self.selected_category:
             return
+        if not self.flush_pending_editor_changes():
+            return
         self.active_draft_editor_id = None
         self.selected_category = category
         self.selected_card_id = None
         self.reload_data(select_first=True)
 
     def on_search_text_changed(self, text: str) -> None:
+        if not self.flush_pending_editor_changes():
+            self.search_input.blockSignals(True)
+            self.search_input.setText(self.search_keyword)
+            self.search_input.blockSignals(False)
+            return
         self.active_draft_editor_id = None
         self.search_keyword = text.strip()
         self.selected_card_id = None
         self.reload_data(select_first=True)
 
     def select_card(self, card_id: int) -> None:
+        if not self.flush_pending_editor_changes():
+            return
         self.active_draft_editor_id = None
         self.selected_card_id = card_id
         for existing_id, widget in self.card_widgets.items():
@@ -628,17 +647,25 @@ class MainWindow(QMainWindow):
         self._set_detail_widget(self._build_preview_detail(card))
 
     def show_new_card_editor(self) -> None:
+        if not self.flush_pending_editor_changes():
+            return
+        draft = create_draft_card("未命名草稿", db_path=self.db_path)
         self.active_draft_editor_id = None
         self.selected_card_id = None
         for widget in self.card_widgets.values():
             self._set_selected_property(widget, False)
-        self._set_detail_widget(self._build_edit_detail(card=None))
+        self.reload_data(selected_card_id=self.selected_card_id)
+        self.open_draft_editor(int(draft.id))
 
     def show_edit_card_editor(self, card: Card) -> None:
+        if not self.flush_pending_editor_changes():
+            return
         self.active_draft_editor_id = None
         self._set_detail_widget(self._build_edit_detail(card=card))
 
     def open_draft_editor(self, card_id: int) -> None:
+        if not self.flush_pending_editor_changes():
+            return
         draft = get_card_by_id(card_id, self.db_path)
         if draft is None or draft.is_draft != 1:
             self.reload_data(select_first=True)
@@ -651,6 +678,8 @@ class MainWindow(QMainWindow):
         self._set_detail_widget(self._build_edit_detail(card=draft))
 
     def create_draft_from_input(self) -> None:
+        if not self.flush_pending_editor_changes():
+            return
         title = self.draft_input.text().strip()
         if not title:
             return
@@ -664,6 +693,7 @@ class MainWindow(QMainWindow):
         if not title:
             QMessageBox.warning(self, "无法保存", "标题不能为空。")
             return
+        self.autosave_timer.stop()
 
         if card is None:
             saved = create_card(
@@ -673,8 +703,8 @@ class MainWindow(QMainWindow):
                 tags=fields["tags"],
                 summary=fields["summary"],
                 content=fields["content"],
-                keywords="",
-                source="",
+                keywords=fields["keywords"],
+                source=fields["source"],
                 is_draft=0,
                 db_path=self.db_path,
             )
@@ -688,6 +718,8 @@ class MainWindow(QMainWindow):
                 tags=fields["tags"],
                 summary=fields["summary"],
                 content=fields["content"],
+                keywords=fields["keywords"],
+                source=fields["source"],
                 is_draft=0,
             )
 
@@ -740,6 +772,7 @@ class MainWindow(QMainWindow):
             self.reload_data(selected_card_id=self.selected_card_id)
 
     def _build_preview_detail(self, card: Card) -> QWidget:
+        self._reset_editor_state()
         self._set_detail_actions(
             "阅读模式",
             [
@@ -789,6 +822,9 @@ class MainWindow(QMainWindow):
         self.statusBar().showMessage("已复制代码", 1500)
 
     def _build_edit_detail(self, card: Card | None) -> QWidget:
+        self.current_editor_card = card
+        self.current_editor_dirty = False
+        self.editor_fields = {}
         content = QWidget()
         content.setObjectName("DetailContent")
         layout = QVBoxLayout(content)
@@ -843,6 +879,16 @@ class MainWindow(QMainWindow):
         summary_input.setPlaceholderText("一句话总结")
         layout.addWidget(self._build_editor_field("一句话总结", summary_input))
 
+        keywords_input = QLineEdit(card.keywords if card else "")
+        keywords_input.setObjectName("EditorInput")
+        keywords_input.setPlaceholderText("用于搜索的额外关键词")
+        layout.addWidget(self._build_editor_field("关键词", keywords_input))
+
+        source_input = QLineEdit(card.source if card else "")
+        source_input.setObjectName("EditorInput")
+        source_input.setPlaceholderText("来源链接或来源说明")
+        layout.addWidget(self._build_editor_field("来源", source_input))
+
         content_label = QLabel("Markdown 正文")
         content_label.setObjectName("MetaLabel")
         layout.addWidget(content_label)
@@ -853,20 +899,23 @@ class MainWindow(QMainWindow):
         content_input.setMinimumHeight(320)
         layout.addWidget(content_input, 1)
 
-        def collect_fields() -> dict[str, str]:
-            return {
-                "title": title_input.text(),
-                "scenario": scenario_input.currentText().strip(),
-                "category": category_input.currentText().strip(),
-                "tags": tags_input.text().strip(),
-                "summary": summary_input.text().strip(),
-                "content": content_input.toPlainText(),
-            }
+        self.editor_fields = {
+            "title": title_input,
+            "scenario": scenario_input,
+            "category": category_input,
+            "tags": tags_input,
+            "summary": summary_input,
+            "keywords": keywords_input,
+            "source": source_input,
+            "content": content_input,
+        }
+        self._connect_editor_change_signals()
+        self.set_autosave_status("已自动保存" if card is not None and card.is_draft == 1 else "")
 
         self._set_detail_actions(
             "编辑模式",
             [
-                ("保存", "PrimaryButton", lambda: self.save_editor(card, collect_fields())),
+                ("保存", "PrimaryButton", lambda: self.save_editor(card, self.collect_editor_fields())),
                 ("取消", "SecondaryButton", lambda: self.cancel_editor(card)),
             ],
         )
@@ -874,11 +923,22 @@ class MainWindow(QMainWindow):
         return content
 
     def cancel_editor(self, card: Card | None) -> None:
+        if card is not None and card.is_draft == 1:
+            if not self.flush_draft_autosave():
+                return
+            self.active_draft_editor_id = None
+            self.selected_card_id = None
+            self._reset_editor_state()
+            self._set_detail_widget(self._build_empty_detail())
+            return
+
         if card is not None and card.is_draft == 0:
             self.selected_card_id = card.id
+        self._reset_editor_state()
         self._show_selected_card()
 
     def _build_empty_detail(self) -> QWidget:
+        self._reset_editor_state()
         self._set_detail_actions("知识卡片", [])
         content = QWidget()
         content.setObjectName("DetailContent")
@@ -916,6 +976,114 @@ class MainWindow(QMainWindow):
         layout.addWidget(label)
         layout.addWidget(field)
         return wrapper
+
+    def collect_editor_fields(self) -> dict[str, str]:
+        fields: dict[str, str] = {}
+        for name, widget in self.editor_fields.items():
+            if isinstance(widget, QComboBox):
+                fields[name] = widget.currentText().strip()
+            elif isinstance(widget, QLineEdit):
+                fields[name] = widget.text().strip()
+            elif isinstance(widget, QTextEdit):
+                fields[name] = widget.toPlainText()
+        return fields
+
+    def _connect_editor_change_signals(self) -> None:
+        for widget in self.editor_fields.values():
+            if isinstance(widget, QComboBox):
+                widget.currentTextChanged.connect(self.mark_editor_dirty)
+            elif isinstance(widget, QLineEdit):
+                widget.textChanged.connect(self.mark_editor_dirty)
+            elif isinstance(widget, QTextEdit):
+                widget.textChanged.connect(self.mark_editor_dirty)
+
+    def mark_editor_dirty(self) -> None:
+        if self.current_editor_card is None:
+            return
+
+        self.current_editor_dirty = True
+        if self.current_editor_card.is_draft == 1:
+            self.set_autosave_status("未保存")
+            self.autosave_timer.start()
+        else:
+            self.set_autosave_status("未保存")
+
+    def set_autosave_status(self, text: str) -> None:
+        if hasattr(self, "autosave_status_label"):
+            self.autosave_status_label.setText(text)
+
+    def flush_draft_autosave(self) -> bool:
+        card = self.current_editor_card
+        if card is None or card.is_draft != 1:
+            return True
+        if not self.current_editor_dirty:
+            return True
+
+        self.autosave_timer.stop()
+        fields = self.collect_editor_fields()
+        title = fields["title"].strip() or "未命名草稿"
+
+        try:
+            saved = update_card(
+                int(card.id),
+                db_path=self.db_path,
+                title=title,
+                scenario=fields["scenario"],
+                category=fields["category"],
+                tags=fields["tags"],
+                summary=fields["summary"],
+                content=fields["content"],
+                keywords=fields["keywords"],
+                source=fields["source"],
+                is_draft=1,
+            )
+        except Exception as error:
+            self.set_autosave_status("自动保存失败")
+            QMessageBox.warning(self, "自动保存失败", f"草稿自动保存失败：\n{error}")
+            return False
+
+        if saved is None:
+            self.set_autosave_status("自动保存失败")
+            QMessageBox.warning(self, "自动保存失败", "没有找到要自动保存的草稿。")
+            return False
+
+        self.current_editor_card = saved
+        self.current_editor_dirty = False
+        self.set_autosave_status("已自动保存")
+        self.drafts = get_all_draft_cards(self.db_path)
+        self._refresh_drafts()
+        return True
+
+    def flush_pending_editor_changes(self) -> bool:
+        card = self.current_editor_card
+        if card is None or not self.current_editor_dirty:
+            return True
+
+        if card.is_draft == 1:
+            return self.flush_draft_autosave()
+
+        answer = QMessageBox.question(
+            self,
+            "未保存的修改",
+            "当前正式卡片有未保存的修改，是否保存？",
+            QMessageBox.Save | QMessageBox.Discard | QMessageBox.Cancel,
+            QMessageBox.Save,
+        )
+        if answer == QMessageBox.Cancel:
+            return False
+        if answer == QMessageBox.Discard:
+            self._reset_editor_state()
+            return True
+
+        self.save_editor(card, self.collect_editor_fields())
+        return True
+
+    def _reset_editor_state(self) -> None:
+        self.autosave_timer.stop()
+        self.current_editor_card = None
+        self.current_editor_dirty = False
+        self.editor_fields = {}
+        self.set_autosave_status("")
 
     def _set_detail_actions(
         self,
@@ -992,3 +1160,29 @@ class MainWindow(QMainWindow):
             "论文笔记": "N",
         }
         return markers.get(name, "•")
+
+    def closeEvent(self, event) -> None:  # type: ignore[override]
+        card = self.current_editor_card
+        if card is not None and card.is_draft == 1 and self.current_editor_dirty:
+            if self.flush_draft_autosave():
+                event.accept()
+                return
+
+            answer = QMessageBox.question(
+                self,
+                "草稿尚未保存",
+                "草稿自动保存失败，仍然要退出吗？",
+                QMessageBox.Yes | QMessageBox.No,
+                QMessageBox.No,
+            )
+            if answer == QMessageBox.Yes:
+                event.accept()
+            else:
+                event.ignore()
+            return
+
+        if not self.flush_pending_editor_changes():
+            event.ignore()
+            return
+
+        event.accept()

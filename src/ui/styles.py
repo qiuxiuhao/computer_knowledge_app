@@ -235,6 +235,13 @@ QLabel#DetailModeLabel {
     font-weight: 700;
 }
 
+QLabel#AutosaveStatus {
+    color: #2563EB;
+    font-size: 13px;
+    font-weight: 700;
+    min-width: 86px;
+}
+
 QFrame#CategoryRow {
     border-radius: 8px;
     min-height: 38px;
