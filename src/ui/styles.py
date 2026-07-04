@@ -176,6 +176,76 @@ QDialog#FullScreenReader {
     background: #FFFFFF;
 }
 
+QDialog#ConfirmDialog {
+    background: transparent;
+}
+
+QFrame#ConfirmDialogCard {
+    background: #FFFFFF;
+    border: 1px solid #E5E7EB;
+    border-radius: 16px;
+}
+
+QLabel#ConfirmDialogIcon {
+    background: #FEF2F2;
+    border: 1px solid #FECACA;
+    border-radius: 22px;
+    color: #DC2626;
+    font-size: 24px;
+    font-weight: 900;
+    min-width: 44px;
+    max-width: 44px;
+    min-height: 44px;
+    max-height: 44px;
+}
+
+QLabel#ConfirmDialogTitle {
+    color: #111827;
+    font-size: 18px;
+    font-weight: 800;
+}
+
+QLabel#ConfirmDialogItemTitle {
+    color: #111827;
+    font-size: 15px;
+    font-weight: 700;
+}
+
+QLabel#ConfirmDialogDescription {
+    color: #6B7280;
+    font-size: 13px;
+    line-height: 1.45;
+}
+
+QPushButton#ConfirmDialogCancelButton {
+    background: #FFFFFF;
+    border: 1px solid #DDE3EC;
+    border-radius: 9px;
+    color: #374151;
+    font-weight: 700;
+    min-width: 88px;
+    padding: 9px 16px;
+}
+
+QPushButton#ConfirmDialogCancelButton:hover {
+    background: #F8FAFC;
+}
+
+QPushButton#ConfirmDialogDeleteButton {
+    background: #DC2626;
+    border: 1px solid #DC2626;
+    border-radius: 9px;
+    color: #FFFFFF;
+    font-weight: 800;
+    min-width: 96px;
+    padding: 9px 16px;
+}
+
+QPushButton#ConfirmDialogDeleteButton:hover {
+    background: #B91C1C;
+    border-color: #B91C1C;
+}
+
 QFrame#FullScreenToolbar {
     background: #FFFFFF;
     border-bottom: 1px solid #E5E7EB;

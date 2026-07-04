@@ -10,6 +10,7 @@ from PySide6.QtGui import QColor, QPainter, QPen
 from PySide6.QtWidgets import (
     QCompleter,
     QComboBox,
+    QDialog,
     QFrame,
     QHBoxLayout,
     QLabel,
@@ -742,14 +743,13 @@ class MainWindow(QMainWindow):
         self.reload_data(selected_card_id=saved.id)
 
     def confirm_delete_card(self, card: Card) -> None:
-        answer = QMessageBox.question(
-            self,
-            "删除知识卡片",
-            f"确定删除这张知识卡片吗？\n\n{card.title}",
-            QMessageBox.Yes | QMessageBox.No,
-            QMessageBox.No,
+        confirmed = self._confirm_destructive_action(
+            title="确定删除这张知识卡片？",
+            item_title=card.title,
+            description="删除后无法恢复，但不会影响其他知识卡片。",
+            confirm_text="删除卡片",
         )
-        if answer != QMessageBox.Yes:
+        if not confirmed:
             return
 
         delete_card(int(card.id), self.db_path)
@@ -757,14 +757,13 @@ class MainWindow(QMainWindow):
         self.reload_data(select_first=True)
 
     def confirm_delete_draft(self, draft: Card) -> None:
-        answer = QMessageBox.question(
-            self,
-            "删除草稿",
-            f"确定删除这个草稿吗？\n\n{draft.title}",
-            QMessageBox.Yes | QMessageBox.No,
-            QMessageBox.No,
+        confirmed = self._confirm_destructive_action(
+            title="确定删除这个草稿？",
+            item_title=draft.title,
+            description="删除后无法恢复，草稿内容会从本地数据库移除。",
+            confirm_text="删除草稿",
         )
-        if answer != QMessageBox.Yes:
+        if not confirmed:
             return
 
         delete_card(int(draft.id), self.db_path)
@@ -773,6 +772,83 @@ class MainWindow(QMainWindow):
             self.reload_data(select_first=True)
         else:
             self.reload_data(selected_card_id=self.selected_card_id)
+
+    def _confirm_destructive_action(
+        self,
+        *,
+        title: str,
+        item_title: str,
+        description: str,
+        confirm_text: str,
+    ) -> bool:
+        dialog = QDialog(self)
+        dialog.setObjectName("ConfirmDialog")
+        dialog.setModal(True)
+        dialog.setWindowFlags(Qt.Dialog | Qt.FramelessWindowHint)
+        dialog.setAttribute(Qt.WidgetAttribute.WA_TranslucentBackground)
+
+        outer = QVBoxLayout(dialog)
+        outer.setContentsMargins(0, 0, 0, 0)
+        outer.setSpacing(0)
+
+        card = QFrame()
+        card.setObjectName("ConfirmDialogCard")
+        outer.addWidget(card)
+
+        layout = QVBoxLayout(card)
+        layout.setContentsMargins(26, 24, 26, 22)
+        layout.setSpacing(18)
+
+        header = QHBoxLayout()
+        header.setContentsMargins(0, 0, 0, 0)
+        header.setSpacing(16)
+
+        icon = QLabel("!")
+        icon.setObjectName("ConfirmDialogIcon")
+        icon.setAlignment(Qt.AlignCenter)
+        header.addWidget(icon)
+
+        text_column = QVBoxLayout()
+        text_column.setContentsMargins(0, 0, 0, 0)
+        text_column.setSpacing(8)
+
+        title_label = QLabel(title)
+        title_label.setObjectName("ConfirmDialogTitle")
+        title_label.setWordWrap(True)
+        text_column.addWidget(title_label)
+
+        item_label = QLabel(item_title)
+        item_label.setObjectName("ConfirmDialogItemTitle")
+        item_label.setWordWrap(True)
+        text_column.addWidget(item_label)
+
+        description_label = QLabel(description)
+        description_label.setObjectName("ConfirmDialogDescription")
+        description_label.setWordWrap(True)
+        text_column.addWidget(description_label)
+
+        header.addLayout(text_column, 1)
+        layout.addLayout(header)
+
+        actions = QHBoxLayout()
+        actions.setContentsMargins(0, 4, 0, 0)
+        actions.setSpacing(10)
+        actions.addStretch(1)
+
+        cancel_button = QPushButton("取消")
+        cancel_button.setObjectName("ConfirmDialogCancelButton")
+        cancel_button.setDefault(True)
+        cancel_button.clicked.connect(dialog.reject)
+        actions.addWidget(cancel_button)
+
+        confirm_button = QPushButton(confirm_text)
+        confirm_button.setObjectName("ConfirmDialogDeleteButton")
+        confirm_button.clicked.connect(dialog.accept)
+        actions.addWidget(confirm_button)
+        layout.addLayout(actions)
+
+        dialog.setFixedWidth(480)
+        return dialog.exec() == QDialog.Accepted
 
     def _build_preview_detail(self, card: Card) -> QWidget:
         self._reset_editor_state()
